@@ -1,11 +1,7 @@
 #include <iostream>
 #include <string>
-#include <variant>
 
 using namespace std;
-
-#define NULLVARIANT variant<int, std::string>{}
-
 
 enum TokenType{
     NumberToken,
@@ -44,9 +40,9 @@ public:
     TokenType Type;
     int Postion;
     string Text;
-    variant<int,string> Value;
+    string Value;
     
-    syntaxToken(TokenType type,int postion,string text,variant<int,string> value){
+    syntaxToken(TokenType type,int postion,string text,string value){
         Type = type;
         Postion = postion;
         Text = text;
@@ -58,7 +54,7 @@ public:
 class Laxer{
 public:
     string _text;
-    int _position;
+    int _position = 0;
 
     Laxer(string text){
         _text = text;
@@ -81,7 +77,7 @@ public:
         // whitespace
 
         if(_position >= _text.length()){
-            return syntaxToken(TokenType::EndOfLineToken, _position, "\0", NULLVARIANT);
+            return syntaxToken(TokenType::EndOfLineToken, _position, "\0", "");
         }
 
 
@@ -92,8 +88,8 @@ public:
             
             int length = _position - start;
             string text =  _text.substr(start,length);
-            int num = stoi(text);
-            return syntaxToken(TokenType::NumberToken, start, text, num);
+            string value = text; //  not needed but im stupid
+            return syntaxToken(TokenType::NumberToken, start, text, value);
         }
 
         if(isspace(current())){
@@ -103,25 +99,25 @@ public:
             
             int length = _position - start;
             string text =  _text.substr(start,length);
-            return syntaxToken(TokenType::WhitespaceToken, start, text, NULLVARIANT);
+            return syntaxToken(TokenType::WhitespaceToken, start, text, "");
         }
 
         if(current() == '+')
-            return syntaxToken(TokenType::PlusToken, _position++, "+", NULLVARIANT);
+            return syntaxToken(TokenType::PlusToken, _position++, "+", "");
         else if(current() == '-')
-            return syntaxToken(TokenType::MinusToken, _position++, "-", NULLVARIANT);
+            return syntaxToken(TokenType::MinusToken, _position++, "-", "");
         else if(current() == '*')
-            return syntaxToken(TokenType::StarToken, _position++, "*", NULLVARIANT);
+            return syntaxToken(TokenType::StarToken, _position++, "*", "");
         else if(current() == '/')
-            return syntaxToken(TokenType::SlashToken, _position++, "/", NULLVARIANT);
+            return syntaxToken(TokenType::SlashToken, _position++, "/", "");
         else if(current() == '(')
-            return syntaxToken(TokenType::OpenParenthesesToken, _position++, "(", NULLVARIANT);
+            return syntaxToken(TokenType::OpenParenthesesToken, _position++, "(", "");
         else if(current() == ')')
-            return syntaxToken(TokenType::CloseParenthesesToken, _position++, ")", NULLVARIANT);
+            return syntaxToken(TokenType::CloseParenthesesToken, _position++, ")", "");
         else if(current() == ';')
-            return syntaxToken(TokenType::SemicolonToken, _position++, ";", NULLVARIANT);
+            return syntaxToken(TokenType::SemicolonToken, _position++, ";", "");
         
-        return syntaxToken(TokenType::BadToken, _position++, _text.substr(_position - 1, 1), NULLVARIANT);
+        return syntaxToken(TokenType::BadToken, _position++, _text.substr(_position - 1, 1), "");
 
     }
 };
@@ -135,17 +131,15 @@ int main(){
     while (true)
     {
         syntaxToken token =  laxer.nextToken();
-        if(token.Type == TokenType::EndOfLineToken)
+        if(token.Type == TokenType::EndOfLineToken){
             break;
-
-        cout << TokenTypeToString(token.Type) << " " << token.Text << " ";
-        if (holds_alternative<int>(token.Value)) {
-            cout << get<int>(token.Value) << " ";
         }
+        
+        cout << TokenTypeToString(token.Type) << " " << token.Text;
+        if(!token.Value.empty())
+            cout << " " << token.Value;
         cout<<endl;
     }
     
-
-
     return 0;
 }
