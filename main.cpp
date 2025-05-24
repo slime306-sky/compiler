@@ -308,6 +308,27 @@ public:
         return parseExpression();
     }
 
+    /// @brief It evaluates AST  
+    /// @param node head of ast 
+    /// @return evaluated AST answer
+    int evaluateAST(const ASTNode* node){
+        if(const NumberNode* n = dynamic_cast<const NumberNode*>(node)){
+            return n->value;
+        }
+        else if(const BinaryOperatorNode* bon = dynamic_cast<const BinaryOperatorNode*>(node)){
+            int leftVal = evaluateAST(bon->left.get());
+            int rightVal = evaluateAST(bon->right.get());
+
+            switch (bon->op){   
+            case '+': return leftVal + rightVal;
+            case '-': return leftVal - rightVal;
+            case '*': return leftVal * rightVal;
+            case '/': return leftVal / rightVal;
+            }
+        }
+        throw runtime_error("Error : Unknown node");
+    }
+
 };
 
 
@@ -327,6 +348,6 @@ int main(){
         ast->print();
     }
     cout<<endl;
-
+    cout << "evaluated ast result :" << parser.evaluateAST(ast.get());
     return 0;
 }
