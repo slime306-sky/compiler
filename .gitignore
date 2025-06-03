@@ -1,0 +1,13 @@
+# Ignore VSCode settings
+.vscode/
+
+# Ignore shell scripts
+build.sh
+gitpush.sh
+
+# Ignore compiled binary
+main
+
+# Optional: ignore backup or swap files (if using editors like Vim)
+*~
+*.swp
