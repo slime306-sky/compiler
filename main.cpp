@@ -2,6 +2,9 @@
 #include <vector>
 #include <string>
 #include <memory>
+#include <fstream>
+#include <sstream>
+#include <unordered_map>
 
 using namespace std;
 
@@ -10,15 +13,19 @@ using namespace std;
 /// @brief Which kind of Token is
 enum TokenType{
 
-    // Variable Type
+    // Variable Token
 
     Number_Token,
+    
+    // Keywords Token
+
+    Let_Token,
 
     // General Token
 
-    WhiteSpace_Token,
     Semicolon_Token,
     EndOfLine_Token,
+    Identifier_Token,
 
     // Arithmatic Tokens
 
@@ -26,6 +33,10 @@ enum TokenType{
     Minus_Token,
     Star_Token,
     Slash_Token,
+
+    // Assignment Tokens
+
+    Equal_Token,
 
     // Brakets Tokens
 
@@ -43,13 +54,14 @@ enum TokenType{
 string TokenTypeToString(TokenType type) {
     switch (type) {
         case Number_Token: return "Number_Token";
-        case WhiteSpace_Token: return "WhiteSpace_Token";
         case Semicolon_Token: return "Semicolon_Token";
         case EndOfLine_Token: return "EndOfLine_Token";
         case Plus_Token: return "Plus_Token";
         case Minus_Token: return "Minus_Token";
         case Star_Token: return "Star_Token";
         case Slash_Token: return "Slash_Token";
+        case Equal_Token: return "Equal_Token";
+        case Let_Token: return "Let_Token";
         case Open_Parentheses_Token: return "Open_Parentheses_Token";
         case Close_Parentheses_Token: return "Close_Parentheses_Token";
         case Unknown_Token: return "Unknown_Token";
@@ -75,33 +87,65 @@ struct Token
     }
 };
 
-// ================ Laxer ==================
+// ================ Lexer ==================
 
 /// @brief For converting Input into Tokens
-class Laxer{
+class Lexer{
 
 private:
     vector<Token> Tokens;
     int pos = 0;
     Token token;
     string Input;
-    char currentChar;
 
-    // return's the current character or if needed change offset
-    char peek(int offset = 0){
-        if((pos + offset) >= Input.length()) {cerr<<"Error : OutOfRange Input String";return '\0';}
+    unordered_map<char,TokenType> singleCharToken = {
+        {'+', Plus_Token},
+        {'-', Minus_Token},
+        {'*', Star_Token},
+        {'/', Slash_Token},
+        {'=', Equal_Token},
+        {'(', Open_Parentheses_Token},
+        {')', Close_Parentheses_Token},
+        {';', Semicolon_Token}
+    };
+
+    unordered_map<string,TokenType> keywordToken = {
+        {"let",Let_Token}
+    };
+
+
+    // Return the current character with optional lookahead
+    char peek(int offset = 0) {
+        if ((pos + offset) >= Input.size()) {
+            return '\0';  // Safe EOF sentinel
+        }
         return Input[pos + offset];
     }
 
-    // pos + offset of it increments the pos variable
-    char consume(int offset = 1){
+    // Advance the position and return the current character
+    char consume(int offset = 1) {
+        if ((pos + offset - 1) >= Input.size()) {
+            cerr << "Error: Tried to consume past end of input at pos = " << pos 
+                 << ", offset = " << offset << ", size = " << Input.size() << endl;
+            throw runtime_error("Lexer::consume out of bounds");
+        }
         char character = Input[pos];
-        pos = pos + offset;
+        pos += offset;
         return character;
+    }
+
+
+    // check's first letter of identifier
+    bool checkIdentifierStart(char ch){
+        return isalpha(ch) || ch == '_';
+    }
+
+    bool checkIdentifierBody(char ch){
+        return isalnum(ch) || ch == '_';
     }
 public:
 
-    Laxer(string input) : Input(move(input)){
+    Lexer(string input) : Input(move(input)){
         // if needed add later
     }
 
@@ -119,54 +163,42 @@ public:
     /// @return Vector of Tokens
     vector<Token> Tokenizer(){
         while(peek() != '\0'){
-
-            if(isdigit(peek())){
+            char ch = peek();
+            if(isdigit(ch)){
                 int _pos = pos;
                 int value = GiveInteger();
                 Tokens.push_back({_pos,Number_Token,to_string(value),value});
             }
 
-            else if(peek() == '+'){
-                Tokens.push_back({pos,Plus_Token,"+",0});         
+            else if(singleCharToken.count(ch)){
+                Tokens.push_back({pos,singleCharToken[ch],string(1,ch),0});         
                 consume();       
             }
-            else if(peek() == '-'){
-                Tokens.push_back({pos,Minus_Token,"-",0});         
-                consume();       
-            }
-            else if(peek() == '*'){
-                Tokens.push_back({pos,Star_Token,"*",0});        
-                consume();        
-            }
-            else if(peek() == '/'){
-                Tokens.push_back({pos,Slash_Token,"/",0});       
-                consume();         
+
+            else if(checkIdentifierStart(ch)){
+                int _pos = pos;
+                string id;
+                while (checkIdentifierBody(peek())){
+                    id += consume();
+                }
+                if(keywordToken.count(id)){
+                    Tokens.push_back({_pos,keywordToken[id],id,0});
+                }else{
+                    Tokens.push_back({_pos,Identifier_Token,id,0});
+                }
             }
 
-            else if(peek() == ' '){
-                consume();            
-            }
-
-            else if(peek() == '('){
-                Tokens.push_back({pos,Open_Parentheses_Token,"(",0});           
-                consume();     
-            }
-            else if(peek() == ')'){
-                Tokens.push_back({pos,Close_Parentheses_Token,")",0});       
-                consume();         
-            }
-
-            else if(peek() == ';'){
-                Tokens.push_back({pos,Semicolon_Token,";",0});    
+            else if(isspace(ch)){
                 consume();            
             }
 
             else{
-                Tokens.push_back({pos,Unknown_Token,"Unknown_TokenType",0});
+                Tokens.push_back({pos,Unknown_Token,string(1,ch),0});
+                cerr<<"Error : Unexpected token" << ch << " position " << pos <<endl;
                 consume();
-                cerr<<"Error : Unexpected token";
             }
         }
+        Tokens.push_back({pos,EndOfLine_Token,"EOfL",0});
         return Tokens;
     }
 };
@@ -204,14 +236,38 @@ struct BinaryOperatorNode : ASTNode{
     }
 };
 
+/// @brief ast node thar stores variable name
+struct VariableNameNode : ASTNode{
+    string name;
+    VariableNameNode(const string& n) : name(n) {}
+    void print() const override{
+        cout<<name;
+    } 
+};
+
+/// @brief stores whole varible with value
+struct AssignmentNode : ASTNode{
+    string variableName;
+    unique_ptr<ASTNode> value;
+    AssignmentNode(const string& name,ASTNode* val): variableName(name),value(val){};
+    void print() const override{
+        cout << variableName << " = ";
+        value->print();
+    }
+};
+
+
+
+
 // ================ Parser ==================
 
 /// @brief This is For converting or parsering tokens into ast (Abtract Syntax Tree)
 class Parser{
 private:
 
-    Laxer* laxer;
+    unique_ptr<Lexer> lexer;
     vector<Token> Tokens;
+    unordered_map<string,int> variables;
     int pos = 0;
 
     /// @brief For accessing next token
@@ -238,6 +294,17 @@ private:
             return true;
         }
         return false;
+    }
+
+    unique_ptr<ASTNode> parseStatement(){
+        if(peek().tokenType == Let_Token && peek(1).tokenType == Identifier_Token && peek(2).tokenType == Equal_Token){
+            consume(); // let token
+            string variableName = consume().token;
+            consume(); // =
+            auto expr = parseExpression();
+            return make_unique<AssignmentNode>(variableName,expr.release());
+        }
+        return parseExpression();
     }
 
     /// @brief for making + and - token into binary expression
@@ -273,6 +340,9 @@ private:
         if(match(Number_Token)){
             return make_unique<NumberNode>(Tokens[pos - 1].value);
         }
+        else if (match(Identifier_Token)) {
+            return make_unique<VariableNameNode>(Tokens[pos - 1].token);
+        }
         else if(match(Open_Parentheses_Token)){
             auto node = parseExpression();
             if(!match(Close_Parentheses_Token)){
@@ -282,8 +352,7 @@ private:
         }
         else{
             cerr << "Unexpected token at position " << pos << " : " << peek().token << endl;
-            consume();
-            return nullptr; 
+            throw runtime_error("Error: Unexpected token");
         }
     }
 
@@ -291,21 +360,43 @@ public:
     /// @brief for initiating tokens
     /// @param input code what convert
     Parser(string input){
-        laxer = new Laxer(input);
-        Tokens = laxer->Tokenizer();
+        lexer = make_unique<Lexer>(input);
+        Tokens = lexer->Tokenizer();
+
 
         // Debug token output
-        cout << "=== Tokens ===" << endl;
-        for (auto& token : Tokens) {
-            token.printTokens();
+        {   
+            cout << "=== Tokens ===" << endl;
+            for (auto& token : Tokens) {
+                token.printTokens();
+            }
+            cout << "==============\n\n\n";
         }
-        cout << "==============\n\n\n";
-        delete laxer;
     }
     /// @brief for actual parsing tokens into expression
     /// @return whole ast
-    unique_ptr<ASTNode> parse(){
-        return parseExpression();
+    vector<unique_ptr<ASTNode>> parse(){
+
+        vector<unique_ptr<ASTNode>> lines;
+        
+        while(peek().tokenType != EndOfLine_Token){
+            if (peek().tokenType == Semicolon_Token) {
+                // Empty statement consume semicolon and continue
+                consume();
+                continue;
+            }   
+
+            unique_ptr<ASTNode> expr = parseStatement();
+            if(!expr){cerr<<"Error : problem when parsing expression";}
+
+            if(!match(Semicolon_Token)){
+                cerr << "Error : expected ';' at " << pos <<endl;
+                return {};
+            }
+            lines.push_back(move(expr));
+        }
+
+        return lines;
     }
 
     /// @brief It evaluates AST  
@@ -315,6 +406,18 @@ public:
         if(const NumberNode* n = dynamic_cast<const NumberNode*>(node)){
             return n->value;
         }
+        else if(const VariableNameNode* vnn = dynamic_cast<const VariableNameNode*>(node)){
+            if(variables.count(vnn->name)){
+                return variables[vnn->name];
+            } else {
+                throw runtime_error("Error: Undefined variable " + vnn->name);
+            }
+        }
+        else if(const AssignmentNode* an = dynamic_cast<const AssignmentNode*>(node)){
+            int val = evaluateAST(an->value.get());
+            variables[an->variableName] = val;
+            return val;
+        }
         else if(const BinaryOperatorNode* bon = dynamic_cast<const BinaryOperatorNode*>(node)){
             int leftVal = evaluateAST(bon->left.get());
             int rightVal = evaluateAST(bon->right.get());
@@ -323,7 +426,11 @@ public:
             case '+': return leftVal + rightVal;
             case '-': return leftVal - rightVal;
             case '*': return leftVal * rightVal;
-            case '/': return leftVal / rightVal;
+            case '/':                 
+                if (rightVal == 0) {
+                    throw runtime_error("Error: Division by zero");
+                }
+                return leftVal / rightVal;
             }
         }
         throw runtime_error("Error : Unknown node");
@@ -331,23 +438,45 @@ public:
 
 };
 
+// ========== File Management Functions ============
 
-
-
-int main(){
-    string input = "2123 + 3134 * 314";
-
-    Parser parser(input);
-    unique_ptr<ASTNode> ast = parser.parse();
-
-    cout<<"ast : ";
-    
-    if (!ast) {
-        cout << "AST is null (parse failed)" << endl;
-    } else {
-        ast->print();
+string readFile(string filename){
+    ifstream file(filename);
+    if(!file){
+        cerr << "There was problem in reading files";
+        return "";
     }
-    cout<<endl;
-    cout << "evaluated ast result :" << parser.evaluateAST(ast.get());
+
+    stringstream out;
+    out << file.rdbuf();
+    return out.str();
+}
+
+// ================ Main Function ==================
+
+int main(int argc,char* argv[]){
+    
+    if(argc < 2 ){
+        cerr<< "Error : CLI Argument" << endl;
+        return 1;
+    }
+
+    string input = readFile(argv[1]);
+    
+    // string input = "2123 + 3134 * 314";
+    Parser parser(input);
+    vector<unique_ptr<ASTNode>> lines = parser.parse();
+
+    for(const auto& ast : lines){
+        
+        cout<<"ast : ";
+        if (!ast) {
+            cout << "AST is null (parse failed)" << endl;
+        } else {
+            ast->print();
+        }
+        cout<<endl;
+        cout << "evaluated ast result :" << parser.evaluateAST(ast.get())<<endl;
+    }
     return 0;
 }
