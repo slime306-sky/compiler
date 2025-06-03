@@ -61,6 +61,7 @@ string TokenTypeToString(TokenType type) {
         case Star_Token: return "Star_Token";
         case Slash_Token: return "Slash_Token";
         case Equal_Token: return "Equal_Token";
+        case Identifier_Token: return "Identifier_Token";
         case Let_Token: return "Let_Token";
         case Open_Parentheses_Token: return "Open_Parentheses_Token";
         case Close_Parentheses_Token: return "Close_Parentheses_Token";
@@ -110,7 +111,7 @@ private:
     };
 
     unordered_map<string,TokenType> keywordToken = {
-        {"let",Let_Token}
+        {"laile",Let_Token}
     };
 
 
@@ -225,7 +226,7 @@ struct BinaryOperatorNode : ASTNode{
     unique_ptr<ASTNode> left;
     unique_ptr<ASTNode> right;
 
-    BinaryOperatorNode(ASTNode* l,char o,ASTNode* r) : left(move(l)),op(o),right(move(r)) {};
+    BinaryOperatorNode(unique_ptr<ASTNode> l,char o,unique_ptr<ASTNode> r) : left(move(l)),op(o),right(move(r)) {};
 
     void print() const override{
         cout<< "( "; 
@@ -249,7 +250,7 @@ struct VariableNameNode : ASTNode{
 struct AssignmentNode : ASTNode{
     string variableName;
     unique_ptr<ASTNode> value;
-    AssignmentNode(const string& name,ASTNode* val): variableName(name),value(val){};
+    AssignmentNode(const string& name,unique_ptr<ASTNode> val): variableName(name),value(move(val)){};
     void print() const override{
         cout << variableName << " = ";
         value->print();
@@ -302,7 +303,7 @@ private:
             string variableName = consume().token;
             consume(); // =
             auto expr = parseExpression();
-            return make_unique<AssignmentNode>(variableName,expr.release());
+            return make_unique<AssignmentNode>(variableName,unique_ptr<ASTNode>(expr.release()));
         }
         return parseExpression();
     }
@@ -315,7 +316,7 @@ private:
             char op = peek().token[0];
             consume();
             auto right = parseTerm();
-            node = make_unique<BinaryOperatorNode>(node.release(),op,right.release());
+            node = make_unique<BinaryOperatorNode>(unique_ptr<ASTNode>(node.release()),op,unique_ptr<ASTNode>(right.release()));
         }
         return node;
     }
@@ -328,7 +329,7 @@ private:
             char op = peek().token[0];
             consume();
             auto right = parseFactor();
-            node = make_unique<BinaryOperatorNode>(node.release(),op,right.release());
+            node = make_unique<BinaryOperatorNode>(unique_ptr<ASTNode>(node.release()),op,unique_ptr<ASTNode>(right.release()));
         }
         return node;
     }
@@ -390,9 +391,11 @@ public:
             if(!expr){cerr<<"Error : problem when parsing expression";}
 
             if(!match(Semicolon_Token)){
-                cerr << "Error : expected ';' at " << pos <<endl;
+                cerr<< "Syntax Error: expected ';' at position " << pos 
+                    << " (near token '" << peek().token << "')" << endl;
                 return {};
             }
+
             lines.push_back(move(expr));
         }
 
