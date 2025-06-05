@@ -5,6 +5,7 @@
 #include <fstream>
 #include <sstream>
 #include <unordered_map>
+#include <cstdlib>
 
 using namespace std;
 
@@ -20,6 +21,9 @@ enum TokenType{
     // Keywords Token
 
     Let_Token,
+    Print_Token,
+    Exit_Token,
+    End_Token,
 
     // General Token
 
@@ -61,6 +65,9 @@ string TokenTypeToString(TokenType type) {
         case Star_Token: return "Star_Token";
         case Slash_Token: return "Slash_Token";
         case Equal_Token: return "Equal_Token";
+        case Exit_Token: return "Exit_Token";
+        case End_Token: return "End_Token";
+        case Print_Token: return "Print_Token";
         case Identifier_Token: return "Identifier_Token";
         case Let_Token: return "Let_Token";
         case Open_Parentheses_Token: return "Open_Parentheses_Token";
@@ -111,7 +118,10 @@ private:
     };
 
     unordered_map<string,TokenType> keywordToken = {
-        {"laile",Let_Token}
+        {"laile",Let_Token},
+        {"print",Print_Token},        
+        {"exit",Exit_Token},
+        {"end",End_Token}
     };
 
 
@@ -257,6 +267,32 @@ struct AssignmentNode : ASTNode{
     }
 };
 
+struct ExitNode : ASTNode{
+    unique_ptr<ASTNode> value;
+    ExitNode(unique_ptr<ASTNode> val) : value(move(val)){};
+    void print() const override {
+        cout<<"exit ( ";
+        value->print();
+        cout<<" )";
+    }
+};
+
+struct PrintNode : ASTNode{
+    unique_ptr<ASTNode> value;
+    PrintNode(unique_ptr<ASTNode> val): value(move(val)){};
+    void print() const override {
+        cout << ">  ";
+        value->print();
+    }
+};
+
+struct EndNode : ASTNode{
+    EndNode(){};
+    void print() const override {
+        cout<<"-------- code ended ----------";
+    }
+};
+
 
 
 
@@ -268,8 +304,16 @@ private:
 
     unique_ptr<Lexer> lexer;
     vector<Token> Tokens;
-    unordered_map<string,int> variables;
+    unordered_map<string, int> variableOffsets;
+    int currentStackOffset = 0;
     int pos = 0;
+
+    int allocateVariable(const string& name) {
+        currentStackOffset -= 64;
+        variableOffsets[name] = currentStackOffset;
+        return currentStackOffset;
+    }
+
 
     /// @brief For accessing next token
     /// @return Next Token
@@ -298,12 +342,45 @@ private:
     }
 
     unique_ptr<ASTNode> parseStatement(){
-        if(peek().tokenType == Let_Token && peek(1).tokenType == Identifier_Token && peek(2).tokenType == Equal_Token){
+        if(peek().tokenType == Exit_Token){
+            consume(); // exit token
+            if(!match(Open_Parentheses_Token)){
+                cerr << "Syntax Error: expected '(' after 'exit'" << endl;
+                return nullptr;
+            }
+            auto expr = parseExpression();
+
+            if(!match(Close_Parentheses_Token)){
+                cerr << "Syntax Error: expected ')' after exit expression" << endl;
+                return nullptr;
+            }
+
+            return make_unique<ExitNode>(unique_ptr<ASTNode>(expr.release()));
+        }
+        else if(peek().tokenType == Print_Token){
+            consume(); // print token
+            if(!match(Open_Parentheses_Token)){
+                cerr << "Syntax Error: expected '(' after 'print'" << endl;
+                return nullptr;
+            }
+            auto expr = parseExpression();
+
+            if(!match(Close_Parentheses_Token)){
+                cerr << "Syntax Error: expected ')' after print expression" << endl;
+                return nullptr;
+            }
+            return make_unique<PrintNode>(unique_ptr<ASTNode>(expr.release()));
+        }
+        else if(peek().tokenType == Let_Token && peek(1).tokenType == Identifier_Token && peek(2).tokenType == Equal_Token){
             consume(); // let token
             string variableName = consume().token;
             consume(); // =
             auto expr = parseExpression();
             return make_unique<AssignmentNode>(variableName,unique_ptr<ASTNode>(expr.release()));
+        }
+        else if(peek().tokenType == End_Token){
+            consume();
+            return make_unique<EndNode>();
         }
         return parseExpression();
     }
@@ -358,11 +435,25 @@ private:
     }
 
 public:
+    vector<string> assemblyCode;
+
     /// @brief for initiating tokens
     /// @param input code what convert
     Parser(string input){
         lexer = make_unique<Lexer>(input);
         Tokens = lexer->Tokenizer();
+
+        assemblyCode.push_back("section .bss");
+        assemblyCode.push_back("    buffer resb 32");
+        assemblyCode.push_back("section .data");
+        assemblyCode.push_back("    newline db 10");
+        assemblyCode.push_back("section .text");
+        assemblyCode.push_back("global _start");
+        assemblyCode.push_back("_start:");
+        assemblyCode.push_back("    push rbp");
+        assemblyCode.push_back("    mov rbp, rsp");
+        assemblyCode.push_back("    sub rsp, 1024");  // adjust stack space as needed
+
 
 
         // Debug token output
@@ -402,42 +493,110 @@ public:
         return lines;
     }
 
-    /// @brief It evaluates AST  
-    /// @param node head of ast 
-    /// @return evaluated AST answer
-    int evaluateAST(const ASTNode* node){
-        if(const NumberNode* n = dynamic_cast<const NumberNode*>(node)){
-            return n->value;
-        }
-        else if(const VariableNameNode* vnn = dynamic_cast<const VariableNameNode*>(node)){
-            if(variables.count(vnn->name)){
-                return variables[vnn->name];
-            } else {
-                throw runtime_error("Error: Undefined variable " + vnn->name);
-            }
-        }
-        else if(const AssignmentNode* an = dynamic_cast<const AssignmentNode*>(node)){
-            int val = evaluateAST(an->value.get());
-            variables[an->variableName] = val;
-            return val;
-        }
-        else if(const BinaryOperatorNode* bon = dynamic_cast<const BinaryOperatorNode*>(node)){
-            int leftVal = evaluateAST(bon->left.get());
-            int rightVal = evaluateAST(bon->right.get());
-
-            switch (bon->op){   
-            case '+': return leftVal + rightVal;
-            case '-': return leftVal - rightVal;
-            case '*': return leftVal * rightVal;
-            case '/':                 
-                if (rightVal == 0) {
-                    throw runtime_error("Error: Division by zero");
-                }
-                return leftVal / rightVal;
-            }
-        }
-        throw runtime_error("Error : Unknown node");
+    void generateCode(ASTNode* node) {
+    if (auto* num = dynamic_cast<NumberNode*>(node)) {
+        // Literal value: mov rax, immediate
+        assemblyCode.push_back("    mov rax, " + to_string(num->value));
     }
+    if (auto* pn = dynamic_cast<PrintNode*>(node)) {
+        if(auto* num = dynamic_cast<NumberNode*>(pn->value.get()))
+            assemblyCode.push_back("    mov rdi, " + to_string(num->value)); // put number in rdi
+        if(auto* vn = dynamic_cast<VariableNameNode*>(pn->value.get())){
+            int offset = variableOffsets[vn->name];
+            assemblyCode.push_back("    mov rdi, [rbp" + (offset < 0 ? to_string(offset) : "+" + to_string(offset)) + "]");
+
+        }
+        assemblyCode.push_back("    call print_number");
+        assemblyCode.push_back("    ; newline");
+        assemblyCode.push_back("    mov rax, 1");
+        assemblyCode.push_back("    mov rdi, 1");
+        assemblyCode.push_back("    mov rsi, newline");
+        assemblyCode.push_back("    mov rdx, 1");
+        assemblyCode.push_back("    syscall");
+
+        assemblyCode.push_back("; ----------------------");
+        assemblyCode.push_back("; void print_number(uint64_t value)");
+        assemblyCode.push_back("; number is passed in rdi");
+        assemblyCode.push_back("print_number:");
+        assemblyCode.push_back("    mov rax, rdi");
+        assemblyCode.push_back("    mov rsi, buffer + 20");
+        assemblyCode.push_back("    mov rcx, 0");
+
+        assemblyCode.push_back(".convert_loop:");
+        assemblyCode.push_back("    xor rdx, rdx");
+        assemblyCode.push_back("    mov rbx, 10");
+        assemblyCode.push_back("    div rbx");
+        assemblyCode.push_back("    add dl, '0'");
+        assemblyCode.push_back("    dec rsi");
+        assemblyCode.push_back("    mov [rsi], dl");
+        assemblyCode.push_back("    inc rcx");
+        assemblyCode.push_back("    test rax, rax");
+        assemblyCode.push_back("    jnz .convert_loop");
+
+        assemblyCode.push_back("    ; write result");
+        assemblyCode.push_back("    mov rax, 1");
+        assemblyCode.push_back("    mov rdi, 1");
+        assemblyCode.push_back("    mov rdx, rcx");
+        assemblyCode.push_back("    syscall");
+
+        assemblyCode.push_back("    mov rax, 60");   // 1st argument to exit
+        assemblyCode.push_back("    xor rdi,rdi");    // syscall number for exit
+        assemblyCode.push_back("    syscall");
+
+        assemblyCode.push_back("    ret");
+    }
+    else if (auto* var = dynamic_cast<VariableNameNode*>(node)) {
+        // Load variable at [rbp + offset] into rax
+        int offset = variableOffsets[var->name];
+        assemblyCode.push_back("    mov rax, [rbp" + (offset < 0 ? to_string(offset) : "+" + to_string(offset)) + "]");
+    }
+    else if (auto* assign = dynamic_cast<AssignmentNode*>(node)) {
+        generateCode(assign->value.get());  // Result in rax
+        int offset = allocateVariable(assign->variableName);
+        assemblyCode.push_back("    mov [rbp" + (offset < 0 ? to_string(offset) : "+" + to_string(offset)) + "], rax");
+    }
+    else if (auto* en = dynamic_cast<ExitNode*>(node)) {
+        generateCode(en->value.get());      // Result in rax
+        assemblyCode.push_back("    mov rdi, rax");   // 1st argument to exit
+        assemblyCode.push_back("    mov rax, 60");    // syscall number for exit
+        assemblyCode.push_back("    syscall");
+    }
+    else if (auto* en = dynamic_cast<EndNode*>(node)) {
+        assemblyCode.push_back("    mov rax, 60");   // 1st argument to exit
+        assemblyCode.push_back("    xor rdi,rdi");    // syscall number for exit
+        assemblyCode.push_back("    syscall");
+    }
+    else if (auto* binOp = dynamic_cast<BinaryOperatorNode*>(node)) {
+        // Evaluate left operand
+        generateCode(binOp->left.get());
+        assemblyCode.push_back("    push rax");  // Save left value on stack
+
+        // Evaluate right operand
+        generateCode(binOp->right.get());
+        assemblyCode.push_back("    mov rbx, rax");  // Move right operand to rbx
+
+        assemblyCode.push_back("    pop rax");        // Restore left operand to rax
+
+        switch (binOp->op) {
+            case '+':
+                assemblyCode.push_back("    add rax, rbx");
+                break;
+            case '-':
+                assemblyCode.push_back("    sub rax, rbx");
+                break;
+            case '*':
+                assemblyCode.push_back("    imul rax, rbx");
+                break;
+            case '/':
+                assemblyCode.push_back("    cqo");          // Sign extend rax -> rdx:rax
+                assemblyCode.push_back("    idiv rbx");     // Divide rdx:rax by rbx
+                break;
+        }
+    }
+}
+
+
+
 
 };
 
@@ -453,6 +612,22 @@ string readFile(string filename){
     stringstream out;
     out << file.rdbuf();
     return out.str();
+}
+
+void saveFile(vector<string> lines){
+    ofstream outFile("hello.asm",ios::trunc);
+    if (!outFile) {
+        std::cerr << "Failed to open file.\n";
+    }
+    for(const string& line : lines){
+        outFile << line << endl;
+    }
+    outFile.close();
+    cout<<"file saved!\n";
+}   
+
+void runCommands(){
+
 }
 
 // ================ Main Function ==================
@@ -479,7 +654,11 @@ int main(int argc,char* argv[]){
             ast->print();
         }
         cout<<endl;
-        cout << "evaluated ast result :" << parser.evaluateAST(ast.get())<<endl;
+        parser.generateCode(ast.get());
     }
+    saveFile(parser.assemblyCode);
+    system("nasm -f elf64 hello.asm -o hello.o");
+    system("ld hello.o -o hello");
+    system("./hello");
     return 0;
 }

@@ -5,8 +5,18 @@
 build.sh
 gitpush.sh
 
+# asm files
+hello.asm
+printnum.asm
+
+# 
+hello.o
+printnum.o
+
 # Ignore compiled binary
 main
+hello
+printnum
 
 # Optional: ignore backup or swap files (if using editors like Vim)
 *~

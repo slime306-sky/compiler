@@ -1,3 +1,3 @@
-laile x = 10;
-laile y = x * 3 + 4;
-y + 1;
+laile x = 10 + 30 + 50;
+laile y = x + 5 * 13 * 35;
+print(y) ;
