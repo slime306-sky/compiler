@@ -17,10 +17,12 @@ enum TokenType{
     // Variable Token
 
     Number_Token,
+    String_Token,
     
     // Keywords Token
 
     Let_Token,
+    PrintNewLine_Token,
     Print_Token,
     Exit_Token,
     End_Token,
@@ -30,6 +32,7 @@ enum TokenType{
     Semicolon_Token,
     EndOfLine_Token,
     Identifier_Token,
+    DoubleQuotes_Token,
 
     // Arithmatic Tokens
 
@@ -58,8 +61,10 @@ enum TokenType{
 string TokenTypeToString(TokenType type) {
     switch (type) {
         case Number_Token: return "Number_Token";
+        case String_Token: return "String_Token";
         case Semicolon_Token: return "Semicolon_Token";
         case EndOfLine_Token: return "EndOfLine_Token";
+        case DoubleQuotes_Token: return "DoubleQuotes_Token";
         case Plus_Token: return "Plus_Token";
         case Minus_Token: return "Minus_Token";
         case Star_Token: return "Star_Token";
@@ -68,6 +73,7 @@ string TokenTypeToString(TokenType type) {
         case Exit_Token: return "Exit_Token";
         case End_Token: return "End_Token";
         case Print_Token: return "Print_Token";
+        case PrintNewLine_Token: return "PrintNewLine_Token";
         case Identifier_Token: return "Identifier_Token";
         case Let_Token: return "Let_Token";
         case Open_Parentheses_Token: return "Open_Parentheses_Token";
@@ -119,6 +125,7 @@ private:
 
     unordered_map<string,TokenType> keywordToken = {
         {"laile",Let_Token},
+        {"println",PrintNewLine_Token},
         {"print",Print_Token},        
         {"exit",Exit_Token},
         {"end",End_Token}
@@ -185,7 +192,22 @@ public:
                 Tokens.push_back({pos,singleCharToken[ch],string(1,ch),0});         
                 consume();       
             }
+            else if (ch == '"') {
+                std::string strValue;
+                consume();
 
+                while (pos < Input.length() && peek() != '"') {
+                    strValue += consume();
+                }
+            
+                if (pos >= Input.length() || peek() != '"') {
+                    throw std::runtime_error("Unterminated string literal");
+                }
+            
+                consume();
+            
+                Tokens.push_back({pos,String_Token,strValue,0});
+            }
             else if(checkIdentifierStart(ch)){
                 int _pos = pos;
                 string id;
@@ -224,11 +246,17 @@ struct ASTNode{
 };
 
 /// @brief ast node that stores number
-struct NumberNode : ASTNode{
-    int value;
-    NumberNode(int val) : value(val){};
-    void print() const override {cout<<value;}
-};
+    struct NumberNode : ASTNode{
+        int value;
+        NumberNode(int val) : value(val){};
+        void print() const override {cout<<value;}
+    };
+
+    struct StringNode : ASTNode{
+        string value;
+        StringNode(const string& val) : value(val){};
+        void print() const override {cout<<value;}
+    };
 
 /// @brief ast node that stores one binary expression
 struct BinaryOperatorNode : ASTNode{
@@ -285,7 +313,14 @@ struct PrintNode : ASTNode{
         value->print();
     }
 };
-
+struct PrintNewLineNode : ASTNode{
+    unique_ptr<ASTNode> value;
+    PrintNewLineNode(unique_ptr<ASTNode> val): value(move(val)){};
+    void print() const override {
+        cout << ">  ";
+        value->print();
+    }
+};
 struct EndNode : ASTNode{
     EndNode(){};
     void print() const override {
@@ -307,6 +342,7 @@ private:
     unordered_map<string, int> variableOffsets;
     int currentStackOffset = 0;
     int pos = 0;
+    int data = 4;
 
     int allocateVariable(const string& name) {
         currentStackOffset -= 64;
@@ -357,19 +393,47 @@ private:
 
             return make_unique<ExitNode>(unique_ptr<ASTNode>(expr.release()));
         }
-        else if(peek().tokenType == Print_Token){
+        else if(peek().tokenType == PrintNewLine_Token){
             consume(); // print token
+            unique_ptr<ASTNode> expr;
             if(!match(Open_Parentheses_Token)){
                 cerr << "Syntax Error: expected '(' after 'print'" << endl;
                 return nullptr;
             }
-            auto expr = parseExpression();
+            if(peek().tokenType == String_Token){
+                string str = consume().token;
+                expr = make_unique<StringNode>(str);
+            }else{
+                expr = parseExpression();
+            }
 
             if(!match(Close_Parentheses_Token)){
                 cerr << "Syntax Error: expected ')' after print expression" << endl;
                 return nullptr;
             }
-            return make_unique<PrintNode>(unique_ptr<ASTNode>(expr.release()));
+            return make_unique<PrintNewLineNode>(move(expr));
+        }
+        else if(peek().tokenType == Print_Token){
+            consume(); // print token
+            unique_ptr<ASTNode> expr;
+            if(!match(Open_Parentheses_Token)){
+                cerr << "Syntax Error: expected '(' after 'print'" << endl;
+                return nullptr;
+            }
+
+            if(peek().tokenType == String_Token){
+                
+                string str = consume().token;
+                expr = make_unique<StringNode>(str);
+            }else{
+                expr = parseExpression();
+            }
+
+            if(!match(Close_Parentheses_Token)){
+                cerr << "Syntax Error: expected ')' after print expression" << endl;
+                return nullptr;
+            }
+            return make_unique<PrintNode>(move(expr));
         }
         else if(peek().tokenType == Let_Token && peek(1).tokenType == Identifier_Token && peek(2).tokenType == Equal_Token){
             consume(); // let token
@@ -442,6 +506,7 @@ public:
     Parser(string input){
         lexer = make_unique<Lexer>(input);
         Tokens = lexer->Tokenizer();
+        assemblyCode.clear();
 
         assemblyCode.push_back("section .bss");
         assemblyCode.push_back("    buffer resb 32");
@@ -452,8 +517,7 @@ public:
         assemblyCode.push_back("_start:");
         assemblyCode.push_back("    push rbp");
         assemblyCode.push_back("    mov rbp, rsp");
-        assemblyCode.push_back("    sub rsp, 1024");  // adjust stack space as needed
-
+        assemblyCode.push_back("    sub rsp, 1024");
 
 
         // Debug token output
@@ -494,32 +558,116 @@ public:
     }
 
     void generateCode(ASTNode* node) {
-    if (auto* num = dynamic_cast<NumberNode*>(node)) {
-        // Literal value: mov rax, immediate
-        assemblyCode.push_back("    mov rax, " + to_string(num->value));
-    }
-    if (auto* pn = dynamic_cast<PrintNode*>(node)) {
-        if(auto* num = dynamic_cast<NumberNode*>(pn->value.get()))
-            assemblyCode.push_back("    mov rdi, " + to_string(num->value)); // put number in rdi
-        if(auto* vn = dynamic_cast<VariableNameNode*>(pn->value.get())){
-            int offset = variableOffsets[vn->name];
-            assemblyCode.push_back("    mov rdi, [rbp" + (offset < 0 ? to_string(offset) : "+" + to_string(offset)) + "]");
+        static int i = 0;
+        if (auto* num = dynamic_cast<NumberNode*>(node)) {
+            // Literal value: mov rax, immediate
+            assemblyCode.push_back("    mov rax, " + to_string(num->value));
+        }
+        if (auto* pn = dynamic_cast<PrintNode*>(node)) {
+            if(auto* num = dynamic_cast<NumberNode*>(pn->value.get())){
+                assemblyCode.push_back("    mov rdi, " + to_string(num->value)); // put number in rdi
+                assemblyCode.push_back("    call print_number");
+            }
+            if(auto* num = dynamic_cast<StringNode*>(pn->value.get())){
+                
+                assemblyCode.insert(assemblyCode.begin() + data++,"    temp" + to_string(i) + "_msg db \"" + num->value  + "\"");
+                assemblyCode.insert(assemblyCode.begin() + data++,"    temp" + to_string(i) + "_len equ $ - temp" + to_string(i) + "_msg");
+                assemblyCode.push_back("    mov rsi, temp"+to_string(i)+"_msg");
+                assemblyCode.push_back("    mov rdx, temp"+to_string(i++)+"_len");
+                assemblyCode.push_back("    call print_string");
+            }
+            if(auto* vn = dynamic_cast<VariableNameNode*>(pn->value.get())){
+                int offset = variableOffsets[vn->name];
+                assemblyCode.push_back("    mov rdi, [rbp" + (offset < 0 ? to_string(offset) : "+" + to_string(offset)) + "]");
+                assemblyCode.push_back("    call print_number");
+            }
 
         }
-        assemblyCode.push_back("    call print_number");
-        assemblyCode.push_back("    ; newline");
-        assemblyCode.push_back("    mov rax, 1");
-        assemblyCode.push_back("    mov rdi, 1");
-        assemblyCode.push_back("    mov rsi, newline");
-        assemblyCode.push_back("    mov rdx, 1");
-        assemblyCode.push_back("    syscall");
+        if (auto* pn = dynamic_cast<PrintNewLineNode*>(node)) {
+            if(auto* num = dynamic_cast<NumberNode*>(pn->value.get())){
+                assemblyCode.push_back("    mov rdi, " + to_string(num->value)); // put number in rdi
+                assemblyCode.push_back("    call print_number");
+            }
+            if(auto* num = dynamic_cast<StringNode*>(pn->value.get())){
+                assemblyCode.insert(assemblyCode.begin() + data++,"    temp" + to_string(i) + "_msg db \"" + num->value  + "\"");
+                assemblyCode.insert(assemblyCode.begin() + data++,"    temp" + to_string(i) + "_len equ $ - temp" + to_string(i) + "_msg");
+                cout<<1;
+                assemblyCode.push_back("    mov rsi, temp"+to_string(i)+"_msg");
+                assemblyCode.push_back("    mov rdx, temp"+to_string(i++)+"_len");
+                assemblyCode.push_back("    call print_string");
+            }
+            if(auto* vn = dynamic_cast<VariableNameNode*>(pn->value.get())){
+                int offset = variableOffsets[vn->name];
+                assemblyCode.push_back("    mov rdi, [rbp" + (offset < 0 ? to_string(offset) : "+" + to_string(offset)) + "]");
+                assemblyCode.push_back("    call print_number");
+            }
+            assemblyCode.push_back("    ; newline");
+            assemblyCode.push_back("    mov rax, 1");
+            assemblyCode.push_back("    mov rdi, 1");
+            assemblyCode.push_back("    mov rsi, newline");
+            assemblyCode.push_back("    mov rdx, 1");
+            assemblyCode.push_back("    syscall");
+        }
+        else if (auto* var = dynamic_cast<VariableNameNode*>(node)) {
+            // Load variable at [rbp + offset] into rax
+            int offset = variableOffsets[var->name];
+            assemblyCode.push_back("    mov rax, [rbp" + (offset < 0 ? to_string(offset) : "+" + to_string(offset)) + "]");
+        }
+        else if (auto* assign = dynamic_cast<AssignmentNode*>(node)) {
+            generateCode(assign->value.get());  // Result in rax
+            int offset = allocateVariable(assign->variableName);
+            assemblyCode.push_back("    mov [rbp" + (offset < 0 ? to_string(offset) : "+" + to_string(offset)) + "], rax");
+        }
+        else if (auto* en = dynamic_cast<ExitNode*>(node)) {
+            generateCode(en->value.get());      // Result in rax
+            assemblyCode.push_back("    mov rdi, rax");   // 1st argument to exit
+            assemblyCode.push_back("    mov rax, 60");    // syscall number for exit
+            assemblyCode.push_back("    syscall");
+        }
+        else if (auto* en = dynamic_cast<EndNode*>(node)) {
+            assemblyCode.push_back("    mov rax, 60");   // 1st argument to exit
+            assemblyCode.push_back("    xor rdi,rdi");    // syscall number for exit
+            assemblyCode.push_back("    syscall");
+        }
+        else if (auto* binOp = dynamic_cast<BinaryOperatorNode*>(node)) {
+            // Evaluate left operand
+            generateCode(binOp->left.get());
+            assemblyCode.push_back("    push rax");  // Save left value on stack
 
+            // Evaluate right operand
+            generateCode(binOp->right.get());
+            assemblyCode.push_back("    mov rbx, rax");  // Move right operand to rbx
+
+            assemblyCode.push_back("    pop rax");        // Restore left operand to rax
+
+            switch (binOp->op) {
+                case '+':
+                    assemblyCode.push_back("    add rax, rbx");
+                    break;
+                case '-':
+                    assemblyCode.push_back("    sub rax, rbx");
+                    break;
+                case '*':
+                    assemblyCode.push_back("    imul rax, rbx");
+                    break;
+                case '/':
+                    assemblyCode.push_back("    cqo");          // Sign extend rax -> rdx:rax
+                    assemblyCode.push_back("    idiv rbx");     // Divide rdx:rax by rbx
+                    break;
+            }
+        }
+    }
+
+    void addFunctions(){
+        assemblyCode.push_back("    mov rax, 60");   // 1st argument to exit
+        assemblyCode.push_back("    xor rdi,rdi");    // syscall number for exit
+        assemblyCode.push_back("    syscall");
         assemblyCode.push_back("; ----------------------");
         assemblyCode.push_back("; void print_number(uint64_t value)");
         assemblyCode.push_back("; number is passed in rdi");
         assemblyCode.push_back("print_number:");
         assemblyCode.push_back("    mov rax, rdi");
-        assemblyCode.push_back("    mov rsi, buffer + 20");
+        assemblyCode.push_back("    lea rsi, [buffer + 20]");
         assemblyCode.push_back("    mov rcx, 0");
 
         assemblyCode.push_back(".convert_loop:");
@@ -538,66 +686,17 @@ public:
         assemblyCode.push_back("    mov rdi, 1");
         assemblyCode.push_back("    mov rdx, rcx");
         assemblyCode.push_back("    syscall");
+        assemblyCode.push_back("    ret");
 
-        assemblyCode.push_back("    mov rax, 60");   // 1st argument to exit
-        assemblyCode.push_back("    xor rdi,rdi");    // syscall number for exit
+        assemblyCode.push_back("; ----------------------");
+        assemblyCode.push_back("; void print_string(char* str, uint64_t len)");
+        assemblyCode.push_back("; rsi = pointer,rdx = length");
+        assemblyCode.push_back("print_string:");
+        assemblyCode.push_back("    mov rax, 1");
+        assemblyCode.push_back("    mov rdi, 1");
         assemblyCode.push_back("    syscall");
-
         assemblyCode.push_back("    ret");
     }
-    else if (auto* var = dynamic_cast<VariableNameNode*>(node)) {
-        // Load variable at [rbp + offset] into rax
-        int offset = variableOffsets[var->name];
-        assemblyCode.push_back("    mov rax, [rbp" + (offset < 0 ? to_string(offset) : "+" + to_string(offset)) + "]");
-    }
-    else if (auto* assign = dynamic_cast<AssignmentNode*>(node)) {
-        generateCode(assign->value.get());  // Result in rax
-        int offset = allocateVariable(assign->variableName);
-        assemblyCode.push_back("    mov [rbp" + (offset < 0 ? to_string(offset) : "+" + to_string(offset)) + "], rax");
-    }
-    else if (auto* en = dynamic_cast<ExitNode*>(node)) {
-        generateCode(en->value.get());      // Result in rax
-        assemblyCode.push_back("    mov rdi, rax");   // 1st argument to exit
-        assemblyCode.push_back("    mov rax, 60");    // syscall number for exit
-        assemblyCode.push_back("    syscall");
-    }
-    else if (auto* en = dynamic_cast<EndNode*>(node)) {
-        assemblyCode.push_back("    mov rax, 60");   // 1st argument to exit
-        assemblyCode.push_back("    xor rdi,rdi");    // syscall number for exit
-        assemblyCode.push_back("    syscall");
-    }
-    else if (auto* binOp = dynamic_cast<BinaryOperatorNode*>(node)) {
-        // Evaluate left operand
-        generateCode(binOp->left.get());
-        assemblyCode.push_back("    push rax");  // Save left value on stack
-
-        // Evaluate right operand
-        generateCode(binOp->right.get());
-        assemblyCode.push_back("    mov rbx, rax");  // Move right operand to rbx
-
-        assemblyCode.push_back("    pop rax");        // Restore left operand to rax
-
-        switch (binOp->op) {
-            case '+':
-                assemblyCode.push_back("    add rax, rbx");
-                break;
-            case '-':
-                assemblyCode.push_back("    sub rax, rbx");
-                break;
-            case '*':
-                assemblyCode.push_back("    imul rax, rbx");
-                break;
-            case '/':
-                assemblyCode.push_back("    cqo");          // Sign extend rax -> rdx:rax
-                assemblyCode.push_back("    idiv rbx");     // Divide rdx:rax by rbx
-                break;
-        }
-    }
-}
-
-
-
-
 };
 
 // ========== File Management Functions ============
@@ -656,6 +755,7 @@ int main(int argc,char* argv[]){
         cout<<endl;
         parser.generateCode(ast.get());
     }
+    parser.addFunctions();
     saveFile(parser.assemblyCode);
     system("nasm -f elf64 hello.asm -o hello.o");
     system("ld hello.o -o hello");
