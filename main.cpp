@@ -46,7 +46,7 @@ enum TokenType{
 
     Equal_Token,
 
-    // Brakets Tokens
+    // Brackets Tokens
 
     Open_Parentheses_Token,
     Close_Parentheses_Token,
@@ -170,7 +170,7 @@ public:
 
     /// @brief This method reads the input char by char and converts into whole integer
     /// @return Convert char by char digits into whole integer
-    int GiveInteger(){
+    int parseInteger(){
         int result = 0;
         while(isdigit(peek())){
             result = result * 10 + (consume() - '0');
@@ -185,7 +185,7 @@ public:
             char ch = peek();
             if(isdigit(ch)){
                 int _pos = pos;
-                int value = GiveInteger();
+                int value = parseInteger();
                 Tokens.push_back({_pos,Number_Token,to_string(value),value});
             }
 
@@ -334,7 +334,7 @@ struct EndNode : ASTNode{
 
 // ================ Parser ==================
 
-/// @brief This is For converting or parsering tokens into ast (Abtract Syntax Tree)
+/// @brief This is For converting or parsing tokens into ast (Abtract Syntax Tree)
 class Parser{
 private:
 
@@ -448,7 +448,7 @@ private:
                 string str = consume().token;
                 expr = make_unique<StringNode>(str);
             }else{
-                auto expr = parseExpression();
+                expr = parseExpression();
             }
             return make_unique<AssignmentNode>(variableName,move(expr));
         }
@@ -814,7 +814,9 @@ void saveFile(vector<string> lines){
 }   
 
 void runCommands(){
-
+    system("nasm -f elf64 hello.asm -o hello.o");
+    system("ld hello.o -o hello");
+    system("./hello");
 }
 
 // ================ Main Function ==================
@@ -845,8 +847,6 @@ int main(int argc,char* argv[]){
     }
     parser.addFunctions();
     saveFile(parser.assemblyCode);
-    system("nasm -f elf64 hello.asm -o hello.o");
-    system("ld hello.o -o hello");
-    system("./hello");
+    runCommands();
     return 0;
 }
