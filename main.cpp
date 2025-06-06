@@ -6,6 +6,7 @@
 #include <sstream>
 #include <unordered_map>
 #include <cstdlib>
+#include <variant>
 
 using namespace std;
 
@@ -339,7 +340,10 @@ private:
 
     unique_ptr<Lexer> lexer;
     vector<Token> Tokens;
-    unordered_map<string, int> variableOffsets;
+    enum class valueType{ Number, String};
+    unordered_map<string, valueType> variableType;
+    unordered_map<string, string> stringStorage;
+    unordered_map<string, int64_t> variableOffsets;
     int currentStackOffset = 0;
     int pos = 0;
     int data = 4;
@@ -439,8 +443,14 @@ private:
             consume(); // let token
             string variableName = consume().token;
             consume(); // =
-            auto expr = parseExpression();
-            return make_unique<AssignmentNode>(variableName,unique_ptr<ASTNode>(expr.release()));
+            unique_ptr<ASTNode> expr;
+            if(peek().tokenType == String_Token){
+                string str = consume().token;
+                expr = make_unique<StringNode>(str);
+            }else{
+                auto expr = parseExpression();
+            }
+            return make_unique<AssignmentNode>(variableName,move(expr));
         }
         else if(peek().tokenType == End_Token){
             consume();
@@ -496,6 +506,53 @@ private:
             cerr << "Unexpected token at position " << pos << " : " << peek().token << endl;
             throw runtime_error("Error: Unexpected token");
         }
+    }
+
+    string escapeString(string str){
+        string result;
+        string current;
+
+        for (size_t i = 0; i < str.length(); ++i) {
+            if (str[i] == '\\' && i + 1 < str.size()) {
+                // Flush current chunk if not empty
+                if (!current.empty()) {
+                    if (!result.empty()) result += ", ";
+                    result += "'" + current + "'";
+                    current.clear();
+                }
+
+                char next = str[i + 1];
+                if (next == 'n') {
+                    if (!result.empty()) result += ", ";
+                    result += "0x0A";
+                    i++;
+                } else if (next == 't') {
+                    if (!result.empty()) result += ", ";
+                    result += "0x09";
+                    i++;
+                } else if (next == '\\') {
+                    current += '\\';
+                    i++;
+                } else if (next == '\'') {
+                    current += '\'';
+                    i++;
+                } else if (next == '\"') {
+                    current += '\"';
+                    i++;
+                } else {
+                    current += '\\';
+                }
+            } else {
+                current += str[i];
+            }
+        }
+
+        // Add leftover chunk
+        if (!current.empty()) {
+            if (!result.empty()) result += ", ";
+            result += "'" + current + "'";
+        }
+        return result;
     }
 
 public:
@@ -568,18 +625,28 @@ public:
                 assemblyCode.push_back("    mov rdi, " + to_string(num->value)); // put number in rdi
                 assemblyCode.push_back("    call print_number");
             }
-            if(auto* num = dynamic_cast<StringNode*>(pn->value.get())){
-                
-                assemblyCode.insert(assemblyCode.begin() + data++,"    temp" + to_string(i) + "_msg db \"" + num->value  + "\"");
-                assemblyCode.insert(assemblyCode.begin() + data++,"    temp" + to_string(i) + "_len equ $ - temp" + to_string(i) + "_msg");
-                assemblyCode.push_back("    mov rsi, temp"+to_string(i)+"_msg");
-                assemblyCode.push_back("    mov rdx, temp"+to_string(i++)+"_len");
+            else if(auto* str = dynamic_cast<StringNode*>(pn->value.get())){             
+                string label = "temp" + to_string(i);
+                assemblyCode.insert(assemblyCode.begin() + data++, label + "_msg db " + escapeString(str->value) + "");
+                assemblyCode.insert(assemblyCode.begin() + data++, label + "_len equ $ - " + label + "_msg");
+                assemblyCode.push_back("    mov rsi, " + label + "_msg");
+                assemblyCode.push_back("    mov rdx, " + label + "_len");
                 assemblyCode.push_back("    call print_string");
+                i++;
             }
-            if(auto* vn = dynamic_cast<VariableNameNode*>(pn->value.get())){
-                int offset = variableOffsets[vn->name];
-                assemblyCode.push_back("    mov rdi, [rbp" + (offset < 0 ? to_string(offset) : "+" + to_string(offset)) + "]");
-                assemblyCode.push_back("    call print_number");
+            else if(auto* vn = dynamic_cast<VariableNameNode*>(pn->value.get())){
+                string name = vn->name;
+                if(variableType[name] == valueType::Number){
+                    int offset = variableOffsets[vn->name];
+                    assemblyCode.push_back("    mov rdi, [rbp" + (offset < 0 ? to_string(offset) : "+" + to_string(offset)) + "]");
+                    assemblyCode.push_back("    call print_number");
+                }
+                else if (variableType[name] == valueType::String) {
+                    string label = stringStorage[name];
+                    assemblyCode.push_back("    mov rsi, " + label + "_msg");
+                    assemblyCode.push_back("    mov rdx, " + label + "_len");
+                    assemblyCode.push_back("    call print_string");
+                }
             }
 
         }
@@ -588,18 +655,28 @@ public:
                 assemblyCode.push_back("    mov rdi, " + to_string(num->value)); // put number in rdi
                 assemblyCode.push_back("    call print_number");
             }
-            if(auto* num = dynamic_cast<StringNode*>(pn->value.get())){
-                assemblyCode.insert(assemblyCode.begin() + data++,"    temp" + to_string(i) + "_msg db \"" + num->value  + "\"");
-                assemblyCode.insert(assemblyCode.begin() + data++,"    temp" + to_string(i) + "_len equ $ - temp" + to_string(i) + "_msg");
-                cout<<1;
-                assemblyCode.push_back("    mov rsi, temp"+to_string(i)+"_msg");
-                assemblyCode.push_back("    mov rdx, temp"+to_string(i++)+"_len");
+            else if(auto* str = dynamic_cast<StringNode*>(pn->value.get())){
+                string label = "temp" + to_string(i);
+                assemblyCode.insert(assemblyCode.begin() + data++, label + "_msg db " + escapeString(str->value) + "");
+                assemblyCode.insert(assemblyCode.begin() + data++, label + "_len equ $ - " + label + "_msg");
+                assemblyCode.push_back("    mov rsi, " + label + "_msg");
+                assemblyCode.push_back("    mov rdx, " + label + "_len");
                 assemblyCode.push_back("    call print_string");
+                i++;
             }
-            if(auto* vn = dynamic_cast<VariableNameNode*>(pn->value.get())){
-                int offset = variableOffsets[vn->name];
-                assemblyCode.push_back("    mov rdi, [rbp" + (offset < 0 ? to_string(offset) : "+" + to_string(offset)) + "]");
-                assemblyCode.push_back("    call print_number");
+            else if(auto* vn = dynamic_cast<VariableNameNode*>(pn->value.get())){
+                string name = vn->name;
+                if(variableType[name] == valueType::Number){
+                    int offset = variableOffsets[vn->name];
+                    assemblyCode.push_back("    mov rdi, [rbp" + (offset < 0 ? to_string(offset) : "+" + to_string(offset)) + "]");
+                    assemblyCode.push_back("    call print_number");
+                }
+                else if (variableType[name] == valueType::String) {
+                    string label = stringStorage[name];
+                    assemblyCode.push_back("    mov rsi, " + label + "_msg");
+                    assemblyCode.push_back("    mov rdx, " + label + "_len");
+                    assemblyCode.push_back("    call print_string");
+                }
             }
             assemblyCode.push_back("    ; newline");
             assemblyCode.push_back("    mov rax, 1");
@@ -614,12 +691,23 @@ public:
             assemblyCode.push_back("    mov rax, [rbp" + (offset < 0 ? to_string(offset) : "+" + to_string(offset)) + "]");
         }
         else if (auto* assign = dynamic_cast<AssignmentNode*>(node)) {
-            generateCode(assign->value.get());  // Result in rax
-            int offset = allocateVariable(assign->variableName);
-            assemblyCode.push_back("    mov [rbp" + (offset < 0 ? to_string(offset) : "+" + to_string(offset)) + "], rax");
+            if(auto* str = dynamic_cast<StringNode*>(assign->value.get())){
+                string label = "str_" + assign->variableName;
+                stringStorage[assign->variableName] = label;
+                variableType[assign->variableName] = valueType::String;
+                assemblyCode.insert(assemblyCode.begin() + data++, label + "_msg db " + escapeString(str->value) + "");
+                assemblyCode.insert(assemblyCode.begin() + data++, label + "_len equ $ - " + label + "_msg");
+                // No assembly needed for storing strings in stack
+            }
+            else{
+                generateCode(assign->value.get());  // Result in rax
+                int offset = allocateVariable(assign->variableName);
+                assemblyCode.push_back("    mov [rbp" + (offset < 0 ? to_string(offset) : "+" + to_string(offset)) + "], rax");
+                variableType[assign->variableName] = valueType::Number;
+            }
         }
         else if (auto* en = dynamic_cast<ExitNode*>(node)) {
-            generateCode(en->value.get());      // Result in rax
+            generateCode(en->value.get()); 
             assemblyCode.push_back("    mov rdi, rax");   // 1st argument to exit
             assemblyCode.push_back("    mov rax, 60");    // syscall number for exit
             assemblyCode.push_back("    syscall");
