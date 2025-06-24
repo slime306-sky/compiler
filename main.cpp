@@ -49,6 +49,15 @@ enum TokenType{
 
     Equal_Token,
 
+    // Compare Token
+
+    EqualEqual_Token,
+    NotEqual_Token,
+    Less_Token,
+    LessEqual_Token,
+    Greater_Token,
+    GreaterEqual_Token,
+
     // Brackets Tokens
 
     Open_Brace_Token,
@@ -70,6 +79,12 @@ string TokenTypeToString(TokenType type) {
         case String_Token: return "String_Token";
         case Semicolon_Token: return "Semicolon_Token";
         case EndOfLine_Token: return "EndOfLine_Token";
+        case EqualEqual_Token : return "EqualEqual_Token";
+        case NotEqual_Token : return "NotEqual_Token";
+        case Less_Token : return "Less_Token";
+        case LessEqual_Token : return "LessEqual_Token";
+        case Greater_Token : return "Greater_Token";        
+        case GreaterEqual_Token : return "GreaterEqual_Token";
         case DoubleQuotes_Token: return "DoubleQuotes_Token";
         case Plus_Token: return "Plus_Token";
         case Minus_Token: return "Minus_Token";
@@ -133,7 +148,9 @@ private:
         {'}', Close_Brace_Token},
         {'(', Open_Parentheses_Token},
         {')', Close_Parentheses_Token},
-        {';', Semicolon_Token}
+        {';', Semicolon_Token},
+        {'<', Less_Token},  
+        {'>', Greater_Token}            
     };
 
     unordered_map<string,TokenType> keywordToken = {
@@ -237,6 +254,29 @@ public:
                 }
             }
 
+            else if (peek() == '=' && peek(1) == '=') {
+                Tokens.push_back({pos,EqualEqual_Token,"==",0});
+                consume(2);
+            }
+
+
+            else if (peek() == '!' && peek(1) == '=') {
+                Tokens.push_back({pos,NotEqual_Token,"!=",0});
+                consume(2);
+            }
+
+
+            else if (peek() == '<' && peek(1) == '=') {
+                Tokens.push_back({pos,LessEqual_Token,"<=",0});
+                consume(2);
+            }
+
+
+            else if (peek() == '>' && peek(1) == '=') {
+                Tokens.push_back({pos,GreaterEqual_Token,">=",0});
+                consume(2);
+            }
+
             else if(isspace(ch)){
                 consume();            
             }
@@ -276,11 +316,11 @@ struct ASTNode{
 
 /// @brief ast node that stores one binary expression
 struct BinaryOperatorNode : ASTNode{
-    char op;
+    string op;
     unique_ptr<ASTNode> left;
     unique_ptr<ASTNode> right;
 
-    BinaryOperatorNode(unique_ptr<ASTNode> l,char o,unique_ptr<ASTNode> r) : left(move(l)),op(o),right(move(r)) {};
+    BinaryOperatorNode(unique_ptr<ASTNode> l,string o,unique_ptr<ASTNode> r) : left(move(l)),op(move(o)),right(move(r)) {};
 
     void print() const override{
         cout<< "( "; 
@@ -503,8 +543,8 @@ private:
     /// @return a full binary expression with operator + or -
     unique_ptr<ASTNode> parseExpression(){
         auto node = parseTerm();
-        while(peek().tokenType == Plus_Token || peek().tokenType == Minus_Token){
-            char op = peek().token[0];
+        while(true){
+            string op = peek().token;
             consume();
             auto right = parseTerm();
             node = make_unique<BinaryOperatorNode>(unique_ptr<ASTNode>(node.release()),op,unique_ptr<ASTNode>(right.release()));
@@ -517,7 +557,7 @@ private:
     unique_ptr<ASTNode> parseTerm(){
         auto node = parseFactor();
         while(peek().tokenType == Star_Token || peek().tokenType == Slash_Token){
-            char op = peek().token[0];
+            string op = peek().token;
             consume();
             auto right = parseFactor();
             node = make_unique<BinaryOperatorNode>(unique_ptr<ASTNode>(node.release()),op,unique_ptr<ASTNode>(right.release()));
@@ -855,20 +895,28 @@ public:
 
             assemblyCode.push_back("    pop rax");        // Restore left operand to rax
 
-            switch (binOp->op) {
-                case '+':
-                    assemblyCode.push_back("    add rax, rbx");
-                    break;
-                case '-':
-                    assemblyCode.push_back("    sub rax, rbx");
-                    break;
-                case '*':
-                    assemblyCode.push_back("    imul rax, rbx");
-                    break;
-                case '/':
+            string op = binOp->op;
+            
+            if (op == "+" || op == "-" || op == "*" || op == "/"){
+                if(op == "+") assemblyCode.push_back("    add rax, rbx");
+                else if(op == "-") assemblyCode.push_back("    sub rax, rbx");
+                else if(op == "*") assemblyCode.push_back("    imul rax, rbx");
+                else if(op == "/") {
                     assemblyCode.push_back("    cqo");          // Sign extend rax -> rdx:rax
                     assemblyCode.push_back("    idiv rbx");     // Divide rdx:rax by rbx
-                    break;
+                }
+            }
+            else{
+                assemblyCode.push_back("    cmp rax, rbx");
+                string setInstr;
+                if(op == "==") setInstr = "sete";
+                else if (op == "!=") setInstr = "setne";
+                else if (op == "<") setInstr = "setl"; 
+                else if (op == "<=") setInstr = "setle";
+                else if (op == ">") setInstr = "setg";
+                else if (op == ">=") setInstr = "setge";
+                assemblyCode.push_back("    " + setInstr + " al");
+                assemblyCode.push_back("    movzx rax, al");
             }
         }
     }
