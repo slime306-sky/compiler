@@ -1,6 +1,14 @@
-if (5 < 6) {
-    println("X is smaller than 11");
+laile score = 85;
+
+if (score >= 90) {
+    println("Grade: A");
+}
+elif (score >= 80) {
+    println("Grade: B");
+}
+elif (score >= 70) {
+    println("Grade: C");
 }
 else {
-    println("X is zero");
+    println("Grade: F");
 };

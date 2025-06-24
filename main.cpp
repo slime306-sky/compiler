@@ -221,6 +221,29 @@ public:
                 Tokens.push_back({_pos,Number_Token,to_string(value),value});
             }
 
+            else if (peek() == '=' && peek(1) == '=') {
+                Tokens.push_back({pos,EqualEqual_Token,"==",0});
+                consume(2);
+            }
+
+
+            else if (peek() == '!' && peek(1) == '=') {
+                Tokens.push_back({pos,NotEqual_Token,"!=",0});
+                consume(2);
+            }
+
+
+            else if (peek() == '<' && peek(1) == '=') {
+                Tokens.push_back({pos,LessEqual_Token,"<=",0});
+                consume(2);
+            }
+
+
+            else if (peek() == '>' && peek(1) == '=') {
+                Tokens.push_back({pos,GreaterEqual_Token,">=",0});
+                consume(2);
+            }
+
             else if(singleCharToken.count(ch)){
                 Tokens.push_back({pos,singleCharToken[ch],string(1,ch),0});         
                 consume();       
@@ -252,29 +275,6 @@ public:
                 }else{
                     Tokens.push_back({_pos,Identifier_Token,id,0});
                 }
-            }
-
-            else if (peek() == '=' && peek(1) == '=') {
-                Tokens.push_back({pos,EqualEqual_Token,"==",0});
-                consume(2);
-            }
-
-
-            else if (peek() == '!' && peek(1) == '=') {
-                Tokens.push_back({pos,NotEqual_Token,"!=",0});
-                consume(2);
-            }
-
-
-            else if (peek() == '<' && peek(1) == '=') {
-                Tokens.push_back({pos,LessEqual_Token,"<=",0});
-                consume(2);
-            }
-
-
-            else if (peek() == '>' && peek(1) == '=') {
-                Tokens.push_back({pos,GreaterEqual_Token,">=",0});
-                consume(2);
             }
 
             else if(isspace(ch)){
@@ -544,10 +544,18 @@ private:
     unique_ptr<ASTNode> parseExpression(){
         auto node = parseTerm();
         while(true){
-            string op = peek().token;
-            consume();
-            auto right = parseTerm();
-            node = make_unique<BinaryOperatorNode>(unique_ptr<ASTNode>(node.release()),op,unique_ptr<ASTNode>(right.release()));
+
+            TokenType tt = peek().tokenType;
+
+            if (tt == EqualEqual_Token || tt == NotEqual_Token || tt == Less_Token || tt == LessEqual_Token ||
+                tt == Greater_Token || tt == GreaterEqual_Token || tt == Plus_Token || tt == Minus_Token){
+
+                string op = peek().token;
+                consume();
+                auto right = parseTerm();
+                node = make_unique<BinaryOperatorNode>(unique_ptr<ASTNode>(node.release()),op,unique_ptr<ASTNode>(right.release()));
+            
+            }else break;
         }
         return node;
     }
