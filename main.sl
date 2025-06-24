@@ -1,5 +1,8 @@
-laile i = 0;
-while (i < 5){
-    println("Hello");
-    laile i = i + 1;
-}
+laile x = 5;
+
+while(x > 0){
+    print("x is ");
+    println(x);
+    x = x - 1;
+};
+println("end");

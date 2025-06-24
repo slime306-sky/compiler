@@ -436,9 +436,9 @@ private:
     unique_ptr<Lexer> lexer;
     vector<Token> Tokens;
     enum class valueType{ Number, String};
-    unordered_map<string, valueType> variableType;
-    unordered_map<string, string> stringStorage;
-    unordered_map<string, int64_t> variableOffsets;
+    static inline unordered_map<string, valueType> variableType;
+    static inline unordered_map<string, string> stringStorage;
+    static inline unordered_map<string, int64_t> variableOffsets;
     int currentStackOffset = 0;
     int pos = 0;
     int data = 4;
@@ -542,9 +542,34 @@ private:
             if(peek().tokenType == String_Token){
                 string str = consume().token;
                 expr = make_unique<StringNode>(str);
+                variableType[variableName] = valueType::String;
             }else{
                 expr = parseExpression();
+                allocateVariable(variableName);
+                variableType[variableName] = valueType::Number;
             }
+            return make_unique<AssignmentNode>(variableName,move(expr));
+        }
+        else if (peek().tokenType == Identifier_Token && peek(1).tokenType == Equal_Token){
+            string variableName = consume().token;
+            consume(); // = 
+
+            unique_ptr<ASTNode> expr;
+            if(peek().tokenType == String_Token){
+                string str = consume().token;
+                expr = make_unique<StringNode>(str);
+            }
+            else{
+                expr = parseExpression();
+            }
+
+            if(variableType.find(variableName) == variableType.end()){
+                cerr << "Warning : assigning to undeclared variable '" << variableName << "'\n";
+                // or we can just allocate 
+                allocateVariable(variableName);
+                variableType[variableName] = valueType::Number;
+            }
+
             return make_unique<AssignmentNode>(variableName,move(expr));
         }
         else if (peek().tokenType == While_Token){
@@ -883,16 +908,19 @@ public:
             if(auto* str = dynamic_cast<StringNode*>(assign->value.get())){
                 string label = "str_" + assign->variableName;
                 stringStorage[assign->variableName] = label;
-                variableType[assign->variableName] = valueType::String;
+                //variableType[assign->variableName] = valueType::String;
                 assemblyCode.insert(assemblyCode.begin() + data++, label + "_msg db " + escapeString(str->value) + "");
                 assemblyCode.insert(assemblyCode.begin() + data++, label + "_len equ $ - " + label + "_msg");
                 // No assembly needed for storing strings in stack
             }
             else{
                 generateCode(assign->value.get());  // Result in rax
-                int offset = allocateVariable(assign->variableName);
+                int offset;
+                if(variableOffsets.find(assign->variableName) == variableOffsets.end()) {cerr << "variabe used before declaration\n";exit(0);}
+                else offset = variableOffsets[assign->variableName];
+                //int offset = allocateVariable(assign->variableName);
                 assemblyCode.push_back("    mov [rbp" + (offset < 0 ? to_string(offset) : "+" + to_string(offset)) + "], rax");
-                variableType[assign->variableName] = valueType::Number;
+                //variableType[assign->variableName] = valueType::Number;
             }
         }
         else if(auto* in = dynamic_cast<IfNode*>(node)){
