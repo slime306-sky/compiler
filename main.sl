@@ -1,12 +1,3 @@
-laile x = 0;
-laile y = 0;
+laile x = 10;
+laile y = 10;
 
-if (x) {
-    println("X is not zero");
-}
-elif (y){
-    println("y is not zero");
-}
-else {
-    println("X is zero");
-};

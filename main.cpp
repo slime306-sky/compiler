@@ -345,19 +345,20 @@ struct EndNode : ASTNode{
 };
 
 struct IfNode : ASTNode{
-    unique_ptr<ASTNode> condition;
-    vector<unique_ptr<ASTNode>> thenBlock;
+    vector<pair<unique_ptr<ASTNode>,vector<unique_ptr<ASTNode>>>> conditionalBlock;
     vector<unique_ptr<ASTNode>> elseBlock;
 
-    IfNode(unique_ptr<ASTNode> condi,vector<unique_ptr<ASTNode>> thenBlk,vector<unique_ptr<ASTNode>> elseBlk):
-        condition(move(condi)),thenBlock(move(thenBlk)),elseBlock(move(elseBlk)){};
+    IfNode(vector<pair<unique_ptr<ASTNode>,vector<unique_ptr<ASTNode>>>> condiBlock,vector<unique_ptr<ASTNode>> elseBlk):
+        conditionalBlock(move(condiBlock)),elseBlock(move(elseBlk)){};
     
     void print() const override {
-        cout << "if (";
-        condition->print();
-        cout << ") {";
-        for (const auto& stmt : thenBlock) stmt->print();
-        cout << " }";
+        for(const auto& [cond,block] : conditionalBlock){
+            cout << "if (";
+            cond->print();
+            cout << ") {";
+            for (const auto& stmt : block) stmt->print();
+            cout << " }";
+        }
         if(!elseBlock.empty()){
             cout << " else { ";
             for (const auto& stmt : elseBlock) stmt->print();
@@ -550,25 +551,9 @@ private:
     /// @brief use for parsing if,else and else-if statement 
     /// @return a if node containing condition ,then block and else block
     unique_ptr<ASTNode> parseIfStatement(){
-        consume(); // if token
+        vector<pair<unique_ptr<ASTNode>,vector<unique_ptr<ASTNode>>>> conditionalBlock; // (conditon,thenBloak)
+        vector<unique_ptr<ASTNode>> elseBlock;
         
-        if(!match(Open_Parentheses_Token)){
-            cerr<<"Expected '(' after 'if'" << endl;
-            return nullptr;
-        }
-
-        auto condition = parseExpression();
-
-        if(!match(Close_Parentheses_Token)){
-            cerr<<"Expected ')' after 'condition'" << endl;
-            return nullptr;
-        }
-
-        if(!match(Open_Brace_Token)){
-            cerr<<"Expected '{' to start if block" << endl;
-            return nullptr;
-        }
-
         auto parseBlock = [&](){
             vector<unique_ptr<ASTNode>> block;
             while(!match(Close_Brace_Token)){
@@ -582,15 +567,40 @@ private:
             return block;
         };
 
-        auto thenBlock = parseBlock();
+        auto parseConditionAndBlock = [&]() -> pair<unique_ptr<ASTNode>,vector<unique_ptr<ASTNode>>> {
+            if(!match(Open_Parentheses_Token)){
+                cerr<<"Expected '(' after 'if'" << endl;
+                return {};
+            }
 
-        vector<unique_ptr<ASTNode>> elseBlock;
+            auto condi = parseExpression();
 
-        if(match(ElseIf_Token)){
-            auto elifNode = parseIfStatement();
-            elseBlock.push_back(move(elifNode));
+            if(!match(Close_Parentheses_Token)){
+                cerr<<"Expected ')' after 'condition'" << endl;
+                return {};
+            }
+
+            if(!match(Open_Brace_Token)){
+                cerr<<"Expected '{' to start if block" << endl;
+                return {};
+            }
+
+
+            auto block = parseBlock();
+
+            return {move(condi),move(block)};    
+        };
+        
+
+        consume(); // if token
+        
+        conditionalBlock.push_back(parseConditionAndBlock());
+
+        while(match(ElseIf_Token)) {
+            conditionalBlock.push_back(parseConditionAndBlock());
         }
-        else if (match(Else_Token)){
+        
+        if (match(Else_Token)){
             if(!match(Open_Brace_Token)){
                 cerr << "Expected '{' after 'else'" << endl;
                 return nullptr;
@@ -598,7 +608,7 @@ private:
             elseBlock = parseBlock();
         }
 
-        return make_unique<IfNode>(move(condition),move(thenBlock),move(elseBlock));
+        return make_unique<IfNode>(move(conditionalBlock),move(elseBlock));
     }
 
     string escapeString(string str){
@@ -803,19 +813,23 @@ public:
             static int lableCount = 0;
             int id = lableCount++;
 
-            string elseLable = "else_" + to_string(id);
             string endLable = "endif_" + to_string(id);
+            vector<string> jumpLabels;
 
-            generateCode(in->condition.get()); // result in rax
-            assemblyCode.push_back("    cmp rax, 0");
-            assemblyCode.push_back("    je " + elseLable);
+            for (size_t i = 0; i < in->conditionalBlock.size(); i++){
+                const auto& [condition,block] = in->conditionalBlock[i];
+                string nextLabel = "else_if_" + to_string(id) + "_" + to_string(i);
+                jumpLabels.push_back(nextLabel);
 
-            for(auto& stmt : in->thenBlock) generateCode(stmt.get());
-
-            assemblyCode.push_back("    jmp " + endLable);
-            assemblyCode.push_back(elseLable + ":");
-
-            for(auto& stmt : in->elseBlock) generateCode(stmt.get());
+                generateCode(condition.get()); // result in rax
+                assemblyCode.push_back("    cmp rax, 0");
+                assemblyCode.push_back("    je " + nextLabel);
+                
+                for(auto& stmt : block) generateCode(stmt.get());
+                assemblyCode.push_back("    jmp " + endLable);
+                assemblyCode.push_back(nextLabel + ":");
+            }
+            if (!in->elseBlock.empty()) for (auto& stmt : in->elseBlock) generateCode(stmt.get());
 
             assemblyCode.push_back(endLable + ":");
         }
