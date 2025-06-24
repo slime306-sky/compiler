@@ -1,14 +1,5 @@
-laile score = 85;
-
-if (score >= 90) {
-    println("Grade: A");
+laile i = 0;
+while (i < 5){
+    println("Hello");
+    laile i = i + 1;
 }
-elif (score >= 80) {
-    println("Grade: B");
-}
-elif (score >= 70) {
-    println("Grade: C");
-}
-else {
-    println("Grade: F");
-};

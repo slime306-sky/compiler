@@ -28,6 +28,7 @@ enum TokenType{
     If_Token,
     ElseIf_Token,
     Else_Token,
+    While_Token,
     Exit_Token,
     End_Token,
 
@@ -85,6 +86,7 @@ string TokenTypeToString(TokenType type) {
         case LessEqual_Token : return "LessEqual_Token";
         case Greater_Token : return "Greater_Token";        
         case GreaterEqual_Token : return "GreaterEqual_Token";
+        case While_Token : return "While_Token";
         case DoubleQuotes_Token: return "DoubleQuotes_Token";
         case Plus_Token: return "Plus_Token";
         case Minus_Token: return "Minus_Token";
@@ -159,7 +161,8 @@ private:
         {"print",Print_Token},
         {"if",If_Token},
         {"elif",ElseIf_Token},
-        {"else",Else_Token},        
+        {"else",Else_Token},
+        {"while",While_Token},
         {"exit",Exit_Token},
         {"end",End_Token}
     };
@@ -407,6 +410,21 @@ struct IfNode : ASTNode{
     }
 };
 
+struct WhileNode : ASTNode{
+    unique_ptr<ASTNode> condition;
+    vector<unique_ptr<ASTNode>> body;
+    WhileNode(unique_ptr<ASTNode> cond, vector<unique_ptr<ASTNode>> b):
+        condition(move(cond)),body(move(b)){}
+
+    void print() const override {
+        cout<< "while (";
+        condition->print();
+        cout<<") { ";
+        for (const auto& stmt : body) stmt->print();
+        cout<<" }";
+    }
+};
+
 
 
 // ================ Parser ==================
@@ -529,6 +547,9 @@ private:
             }
             return make_unique<AssignmentNode>(variableName,move(expr));
         }
+        else if (peek().tokenType == While_Token){
+            return parseWhileStatement();
+        }
         else if (peek().tokenType == If_Token){
             return parseIfStatement();
         }
@@ -620,34 +641,24 @@ private:
                 cerr<<"Expected '(' after 'if'" << endl;
                 return {};
             }
-
             auto condi = parseExpression();
-
             if(!match(Close_Parentheses_Token)){
                 cerr<<"Expected ')' after 'condition'" << endl;
                 return {};
             }
-
             if(!match(Open_Brace_Token)){
                 cerr<<"Expected '{' to start if block" << endl;
                 return {};
             }
-
-
             auto block = parseBlock();
-
             return {move(condi),move(block)};    
         };
         
-
         consume(); // if token
-        
         conditionalBlock.push_back(parseConditionAndBlock());
-
         while(match(ElseIf_Token)) {
             conditionalBlock.push_back(parseConditionAndBlock());
         }
-        
         if (match(Else_Token)){
             if(!match(Open_Brace_Token)){
                 cerr << "Expected '{' after 'else'" << endl;
@@ -655,8 +666,35 @@ private:
             }
             elseBlock = parseBlock();
         }
-
         return make_unique<IfNode>(move(conditionalBlock),move(elseBlock));
+    }
+
+    unique_ptr<ASTNode> parseWhileStatement(){
+        consume(); // while 
+        if(!match(Open_Parentheses_Token)){
+            cerr<<"Expected '(' after 'while'" << endl;
+            return {};
+        }
+        auto condition = parseExpression();
+        if(!match(Close_Parentheses_Token)){
+            cerr<<"Expected ')' after 'condition'" << endl;
+            return {};
+        }
+        if(!match(Open_Brace_Token)){
+            cerr<<"Expected '{' to start while block" << endl;
+            return {};
+        }
+
+        vector<unique_ptr<ASTNode>> body;
+        while(!match(Close_Brace_Token)){
+            auto stmt = parseExpression();
+            if (!stmt || !match(Semicolon_Token)){
+                cerr << "Exprected ';' inside while loop" <<endl;
+                return nullptr;
+            }
+            body.push_back(move(stmt));
+        }
+        return make_unique<WhileNode>(move(condition),move(body));
     }
 
     string escapeString(string str){
@@ -880,6 +918,21 @@ public:
             if (!in->elseBlock.empty()) for (auto& stmt : in->elseBlock) generateCode(stmt.get());
 
             assemblyCode.push_back(endLable + ":");
+        }
+        else if(auto* wn = dynamic_cast<WhileNode*>(node)){
+            static int loopId = 0;
+            int id = loopId++;
+
+            string startLabel = "while_start_" + to_string(id);
+            string endLabel = "while_end_" + to_string(id);
+
+            assemblyCode.push_back(startLabel +":");
+            generateCode(wn->condition.get());
+            assemblyCode.push_back("    cmp rax, 0");
+            assemblyCode.push_back("    je " + endLabel);
+            for(auto& stmt : wn->body) generateCode(stmt.get());
+            assemblyCode.push_back("    jmp " + startLabel);
+            assemblyCode.push_back(endLabel+":");
         }
         else if (auto* en = dynamic_cast<ExitNode*>(node)) {
             generateCode(en->value.get()); 
