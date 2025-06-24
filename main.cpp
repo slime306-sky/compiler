@@ -687,7 +687,7 @@ private:
 
         vector<unique_ptr<ASTNode>> body;
         while(!match(Close_Brace_Token)){
-            auto stmt = parseExpression();
+            auto stmt = parseStatement();
             if (!stmt || !match(Semicolon_Token)){
                 cerr << "Exprected ';' inside while loop" <<endl;
                 return nullptr;
