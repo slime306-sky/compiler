@@ -25,6 +25,9 @@ enum TokenType{
     Let_Token,
     PrintNewLine_Token,
     Print_Token,
+    If_Token,
+    ElseIf_Token,
+    Else_Token,
     Exit_Token,
     End_Token,
 
@@ -48,6 +51,8 @@ enum TokenType{
 
     // Brackets Tokens
 
+    Open_Brace_Token,
+    Close_Brace_Token,
     Open_Parentheses_Token,
     Close_Parentheses_Token,
 
@@ -77,6 +82,11 @@ string TokenTypeToString(TokenType type) {
         case PrintNewLine_Token: return "PrintNewLine_Token";
         case Identifier_Token: return "Identifier_Token";
         case Let_Token: return "Let_Token";
+        case If_Token: return "If_Token";
+        case ElseIf_Token: return "ElseIf_Token";
+        case Else_Token: return "Else_Token";
+        case Open_Brace_Token: return "Open_Brace_Token";
+        case Close_Brace_Token: return "Close_Brace_Token";
         case Open_Parentheses_Token: return "Open_Parentheses_Token";
         case Close_Parentheses_Token: return "Close_Parentheses_Token";
         case Unknown_Token: return "Unknown_Token";
@@ -119,6 +129,8 @@ private:
         {'*', Star_Token},
         {'/', Slash_Token},
         {'=', Equal_Token},
+        {'{', Open_Brace_Token},
+        {'}', Close_Brace_Token},
         {'(', Open_Parentheses_Token},
         {')', Close_Parentheses_Token},
         {';', Semicolon_Token}
@@ -127,7 +139,10 @@ private:
     unordered_map<string,TokenType> keywordToken = {
         {"laile",Let_Token},
         {"println",PrintNewLine_Token},
-        {"print",Print_Token},        
+        {"print",Print_Token},
+        {"if",If_Token},
+        {"elif",ElseIf_Token},
+        {"else",Else_Token},        
         {"exit",Exit_Token},
         {"end",End_Token}
     };
@@ -329,6 +344,27 @@ struct EndNode : ASTNode{
     }
 };
 
+struct IfNode : ASTNode{
+    unique_ptr<ASTNode> condition;
+    vector<unique_ptr<ASTNode>> thenBlock;
+    vector<unique_ptr<ASTNode>> elseBlock;
+
+    IfNode(unique_ptr<ASTNode> condi,vector<unique_ptr<ASTNode>> thenBlk,vector<unique_ptr<ASTNode>> elseBlk):
+        condition(move(condi)),thenBlock(move(thenBlk)),elseBlock(move(elseBlk)){};
+    
+    void print() const override {
+        cout << "if (";
+        condition->print();
+        cout << ") {";
+        for (const auto& stmt : thenBlock) stmt->print();
+        cout << " }";
+        if(!elseBlock.empty()){
+            cout << " else { ";
+            for (const auto& stmt : elseBlock) stmt->print();
+            cout << " }";
+        }
+    }
+};
 
 
 
@@ -452,6 +488,9 @@ private:
             }
             return make_unique<AssignmentNode>(variableName,move(expr));
         }
+        else if (peek().tokenType == If_Token){
+            return parseIfStatement();
+        }
         else if(peek().tokenType == End_Token){
             consume();
             return make_unique<EndNode>();
@@ -506,6 +545,60 @@ private:
             cerr << "Unexpected token at position " << pos << " : " << peek().token << endl;
             throw runtime_error("Error: Unexpected token");
         }
+    }
+
+    /// @brief use for parsing if,else and else-if statement 
+    /// @return a if node containing condition ,then block and else block
+    unique_ptr<ASTNode> parseIfStatement(){
+        consume(); // if token
+        
+        if(!match(Open_Parentheses_Token)){
+            cerr<<"Expected '(' after 'if'" << endl;
+            return nullptr;
+        }
+
+        auto condition = parseExpression();
+
+        if(!match(Close_Parentheses_Token)){
+            cerr<<"Expected ')' after 'condition'" << endl;
+            return nullptr;
+        }
+
+        if(!match(Open_Brace_Token)){
+            cerr<<"Expected '{' to start if block" << endl;
+            return nullptr;
+        }
+
+        auto parseBlock = [&](){
+            vector<unique_ptr<ASTNode>> block;
+            while(!match(Close_Brace_Token)){
+                auto stmt = parseStatement();
+                if (!stmt || !match(Semicolon_Token)){
+                    cerr << "Expected ';' inside if block" << endl;
+                    return vector<unique_ptr<ASTNode>>();
+                }
+                block.push_back(move(stmt));
+            }
+            return block;
+        };
+
+        auto thenBlock = parseBlock();
+
+        vector<unique_ptr<ASTNode>> elseBlock;
+
+        if(match(ElseIf_Token)){
+            auto elifNode = parseIfStatement();
+            elseBlock.push_back(move(elifNode));
+        }
+        else if (match(Else_Token)){
+            if(!match(Open_Brace_Token)){
+                cerr << "Expected '{' after 'else'" << endl;
+                return nullptr;
+            }
+            elseBlock = parseBlock();
+        }
+
+        return make_unique<IfNode>(move(condition),move(thenBlock),move(elseBlock));
     }
 
     string escapeString(string str){
@@ -706,6 +799,26 @@ public:
                 variableType[assign->variableName] = valueType::Number;
             }
         }
+        else if(auto* in = dynamic_cast<IfNode*>(node)){
+            static int lableCount = 0;
+            int id = lableCount++;
+
+            string elseLable = "else_" + to_string(id);
+            string endLable = "endif_" + to_string(id);
+
+            generateCode(in->condition.get()); // result in rax
+            assemblyCode.push_back("    cmp rax, 0");
+            assemblyCode.push_back("    je " + elseLable);
+
+            for(auto& stmt : in->thenBlock) generateCode(stmt.get());
+
+            assemblyCode.push_back("    jmp " + endLable);
+            assemblyCode.push_back(elseLable + ":");
+
+            for(auto& stmt : in->elseBlock) generateCode(stmt.get());
+
+            assemblyCode.push_back(endLable + ":");
+        }
         else if (auto* en = dynamic_cast<ExitNode*>(node)) {
             generateCode(en->value.get()); 
             assemblyCode.push_back("    mov rdi, rax");   // 1st argument to exit
@@ -802,7 +915,7 @@ string readFile(string filename){
 }
 
 void saveFile(vector<string> lines){
-    ofstream outFile("hello.asm",ios::trunc);
+    ofstream outFile("build/hello.asm",ios::trunc);
     if (!outFile) {
         std::cerr << "Failed to open file.\n";
     }
@@ -814,9 +927,9 @@ void saveFile(vector<string> lines){
 }   
 
 void runCommands(){
-    system("nasm -f elf64 hello.asm -o hello.o");
-    system("ld hello.o -o hello");
-    system("./hello");
+    system("nasm -f elf64 build/hello.asm -o build/hello.o");
+    system("ld build/hello.o -o build/hello");
+    system("./build/hello");
 }
 
 // ================ Main Function ==================

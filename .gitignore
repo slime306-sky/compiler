@@ -1,6 +1,6 @@
 # Ignore VSCode settings
 .vscode/
-
+build/
 # Ignore shell scripts
 build.sh
 gitpush.sh
