@@ -1269,40 +1269,47 @@ public:
         assemblyCode.push_back("    syscall");
         assemblyCode.push_back("; ----------------------");
         assemblyCode.push_back("; void print_number(int64_t value)");
-        assemblyCode.push_back("; number is passed in rdi");        
+        assemblyCode.push_back("; number is passed in rdi");                
         assemblyCode.push_back("print_number:");
         assemblyCode.push_back("    mov rax, rdi");
-        assemblyCode.push_back("    test rax, rax");
-        assemblyCode.push_back("    jns .convert_loop");
-        assemblyCode.push_back("    neg rax");
-        assemblyCode.push_back("    mov rbx, '-'");
-        assemblyCode.push_back("    mov [buffer], bl");
-        assemblyCode.push_back("    mov rsi, buffer + 1");
-        assemblyCode.push_back("    mov rcx, 1");
-        assemblyCode.push_back("    jmp .do_convert");
-        assemblyCode.push_back(".convert_loop:");
-        assemblyCode.push_back("    mov rsi, buffer + 20");
-        assemblyCode.push_back("    mov rcx, 0");
-        assemblyCode.push_back(".do_convert:");
-        assemblyCode.push_back("    xor rdx, rdx");
         assemblyCode.push_back("    mov rbx, 10");
+        assemblyCode.push_back("    mov rsi, buffer + 32");  // start from end
+        assemblyCode.push_back("    mov rcx, 0");            // char count
+        assemblyCode.push_back("    mov rdx, 0");            // clear remainder
+        assemblyCode.push_back("    cmp rdi, 0");
+        assemblyCode.push_back("    jl .negative");          // if rdi < 0
+        assemblyCode.push_back(".convert:");
+        assemblyCode.push_back("    xor rdx, rdx");
         assemblyCode.push_back("    div rbx");
         assemblyCode.push_back("    add dl, '0'");
         assemblyCode.push_back("    dec rsi");
         assemblyCode.push_back("    mov [rsi], dl");
         assemblyCode.push_back("    inc rcx");
         assemblyCode.push_back("    test rax, rax");
-        assemblyCode.push_back("    jnz .do_convert");
-        assemblyCode.push_back("    cmp byte [buffer], '-'");
-        assemblyCode.push_back("    jne .write");
+        assemblyCode.push_back("    jnz .convert");
+        assemblyCode.push_back("    jmp .print");
+        assemblyCode.push_back(".negative:");
+        assemblyCode.push_back("    neg rax");
+        assemblyCode.push_back("    xor rdx, rdx");
+        assemblyCode.push_back("    .negconvert:");
+        assemblyCode.push_back("    div rbx");
+        assemblyCode.push_back("    add dl, '0'");
         assemblyCode.push_back("    dec rsi");
+        assemblyCode.push_back("    mov [rsi], dl");
         assemblyCode.push_back("    inc rcx");
-        assemblyCode.push_back(".write:");
+        assemblyCode.push_back("    test rax, rax");
+        assemblyCode.push_back("    jnz .negconvert");
+        assemblyCode.push_back("    dec rsi");
+        assemblyCode.push_back("    mov byte [rsi], '-'");
+        assemblyCode.push_back("    inc rcx");
+        assemblyCode.push_back(".print:");
         assemblyCode.push_back("    mov rax, 1");
         assemblyCode.push_back("    mov rdi, 1");
         assemblyCode.push_back("    mov rdx, rcx");
         assemblyCode.push_back("    syscall");
         assemblyCode.push_back("    ret");
+
+
 
         assemblyCode.push_back("; ----------------------");
         assemblyCode.push_back("; void print_string(char* str, uint64_t len)");
