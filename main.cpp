@@ -1038,11 +1038,8 @@ public:
             }
             else if (auto* un = dynamic_cast<UnaryOperatorNode*>(pn->value.get())){
                 generateCode(un);
-                if (un->op == "-") assemblyCode.push_back("    neg rax");
-                else {
-                    cerr << "Unsupported unary operator: " << un->op <<endl;
-                    exit(1);
-                }
+                assemblyCode.push_back("    mov rdi, rax");
+                assemblyCode.push_back("    call print_number");
             }
         }
         if (auto* pn = dynamic_cast<PrintNewLineNode*>(node)) {
@@ -1085,11 +1082,8 @@ public:
             }
             else if (auto* un = dynamic_cast<UnaryOperatorNode*>(pn->value.get())){
                 generateCode(un);
-                if (un->op == "-") assemblyCode.push_back("    neg rax");
-                else {
-                    cerr << "Unsupported unary operator: " << un->op <<endl;
-                    exit(1);
-                }
+                assemblyCode.push_back("    mov rdi, rax");
+                assemblyCode.push_back("    call print_number");
             }
             assemblyCode.push_back("    ; newline");
             assemblyCode.push_back("    mov rax, 1");
