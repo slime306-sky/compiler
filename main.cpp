@@ -1268,14 +1268,22 @@ public:
         assemblyCode.push_back("    xor rdi,rdi");    // syscall number for exit
         assemblyCode.push_back("    syscall");
         assemblyCode.push_back("; ----------------------");
-        assemblyCode.push_back("; void print_number(uint64_t value)");
-        assemblyCode.push_back("; number is passed in rdi");
+        assemblyCode.push_back("; void print_number(int64_t value)");
+        assemblyCode.push_back("; number is passed in rdi");        
         assemblyCode.push_back("print_number:");
         assemblyCode.push_back("    mov rax, rdi");
-        assemblyCode.push_back("    lea rsi, [buffer + 20]");
-        assemblyCode.push_back("    mov rcx, 0");
-
+        assemblyCode.push_back("    test rax, rax");
+        assemblyCode.push_back("    jns .convert_loop");
+        assemblyCode.push_back("    neg rax");
+        assemblyCode.push_back("    mov rbx, '-'");
+        assemblyCode.push_back("    mov [buffer], bl");
+        assemblyCode.push_back("    mov rsi, buffer + 1");
+        assemblyCode.push_back("    mov rcx, 1");
+        assemblyCode.push_back("    jmp .do_convert");
         assemblyCode.push_back(".convert_loop:");
+        assemblyCode.push_back("    mov rsi, buffer + 20");
+        assemblyCode.push_back("    mov rcx, 0");
+        assemblyCode.push_back(".do_convert:");
         assemblyCode.push_back("    xor rdx, rdx");
         assemblyCode.push_back("    mov rbx, 10");
         assemblyCode.push_back("    div rbx");
@@ -1284,9 +1292,12 @@ public:
         assemblyCode.push_back("    mov [rsi], dl");
         assemblyCode.push_back("    inc rcx");
         assemblyCode.push_back("    test rax, rax");
-        assemblyCode.push_back("    jnz .convert_loop");
-
-        assemblyCode.push_back("    ; write result");
+        assemblyCode.push_back("    jnz .do_convert");
+        assemblyCode.push_back("    cmp byte [buffer], '-'");
+        assemblyCode.push_back("    jne .write");
+        assemblyCode.push_back("    dec rsi");
+        assemblyCode.push_back("    inc rcx");
+        assemblyCode.push_back(".write:");
         assemblyCode.push_back("    mov rax, 1");
         assemblyCode.push_back("    mov rdi, 1");
         assemblyCode.push_back("    mov rdx, rcx");

@@ -1,1 +1,2 @@
-println(-5);
+laile x = -1;
+println(x);
