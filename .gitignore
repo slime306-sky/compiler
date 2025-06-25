@@ -18,6 +18,8 @@ main
 hello
 printnum
 
+convo.txt
+
 # Optional: ignore backup or swap files (if using editors like Vim)
 *~
 *.swp

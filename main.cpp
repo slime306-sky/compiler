@@ -29,6 +29,7 @@ enum TokenType{
     ElseIf_Token,
     Else_Token,
     While_Token,
+    For_Token,
     Exit_Token,
     End_Token,
 
@@ -45,10 +46,16 @@ enum TokenType{
     Minus_Token,
     Star_Token,
     Slash_Token,
+    Mod_Token,
 
     // Assignment Tokens
 
     Equal_Token,
+
+    // increment - decrement token
+
+    PlusPlus_Token,
+    MinusMinus_Token,
 
     // Compare Token
 
@@ -86,12 +93,16 @@ string TokenTypeToString(TokenType type) {
         case LessEqual_Token : return "LessEqual_Token";
         case Greater_Token : return "Greater_Token";        
         case GreaterEqual_Token : return "GreaterEqual_Token";
+        case PlusPlus_Token : return "PlusPlus_Token";
+        case MinusMinus_Token : return "MinusMinus_Token";
         case While_Token : return "While_Token";
+        case For_Token : return "For_Token";
         case DoubleQuotes_Token: return "DoubleQuotes_Token";
         case Plus_Token: return "Plus_Token";
         case Minus_Token: return "Minus_Token";
         case Star_Token: return "Star_Token";
         case Slash_Token: return "Slash_Token";
+        case Mod_Token: return "Mod_Token";
         case Equal_Token: return "Equal_Token";
         case Exit_Token: return "Exit_Token";
         case End_Token: return "End_Token";
@@ -145,6 +156,7 @@ private:
         {'-', Minus_Token},
         {'*', Star_Token},
         {'/', Slash_Token},
+        {'%', Mod_Token},
         {'=', Equal_Token},
         {'{', Open_Brace_Token},
         {'}', Close_Brace_Token},
@@ -155,6 +167,15 @@ private:
         {'>', Greater_Token}            
     };
 
+    unordered_map<string,TokenType> doubleCharToken = {
+        {"==",EqualEqual_Token},
+        {"!=",NotEqual_Token},
+        {"<=",LessEqual_Token},
+        {">=",GreaterEqual_Token},
+        {"++",PlusPlus_Token},
+        {"--",MinusMinus_Token}
+    };
+
     unordered_map<string,TokenType> keywordToken = {
         {"laile",Let_Token},
         {"println",PrintNewLine_Token},
@@ -163,6 +184,7 @@ private:
         {"elif",ElseIf_Token},
         {"else",Else_Token},
         {"while",While_Token},
+        {"for",For_Token},
         {"exit",Exit_Token},
         {"end",End_Token}
     };
@@ -218,35 +240,17 @@ public:
     vector<Token> Tokenizer(){
         while(peek() != '\0'){
             char ch = peek();
+            string twoChar = string() + peek() + peek(1);
             if(isdigit(ch)){
                 int _pos = pos;
                 int value = parseInteger();
                 Tokens.push_back({_pos,Number_Token,to_string(value),value});
             }
-
-            else if (peek() == '=' && peek(1) == '=') {
-                Tokens.push_back({pos,EqualEqual_Token,"==",0});
-                consume(2);
+            else if (doubleCharToken.count(twoChar)){
+                Tokens.push_back({pos,doubleCharToken[twoChar],twoChar,0});
+                //consume(); // first char
+                consume(2); // two char
             }
-
-
-            else if (peek() == '!' && peek(1) == '=') {
-                Tokens.push_back({pos,NotEqual_Token,"!=",0});
-                consume(2);
-            }
-
-
-            else if (peek() == '<' && peek(1) == '=') {
-                Tokens.push_back({pos,LessEqual_Token,"<=",0});
-                consume(2);
-            }
-
-
-            else if (peek() == '>' && peek(1) == '=') {
-                Tokens.push_back({pos,GreaterEqual_Token,">=",0});
-                consume(2);
-            }
-
             else if(singleCharToken.count(ch)){
                 Tokens.push_back({pos,singleCharToken[ch],string(1,ch),0});         
                 consume();       
@@ -331,6 +335,19 @@ struct BinaryOperatorNode : ASTNode{
         cout<< " " << op << " ";
         right->print();
         cout << " )";
+    }
+};
+
+struct UnaryOperatorNode : ASTNode {
+    string op;
+    unique_ptr<ASTNode> operand;
+
+    UnaryOperatorNode(string o,unique_ptr<ASTNode> val): op(move(o)),operand(move(val)){}
+
+    void print() const override {
+        cout << "(" << op;
+        operand->print();
+        cout << ")";
     }
 };
 
@@ -425,7 +442,41 @@ struct WhileNode : ASTNode{
     }
 };
 
+struct ForNode : ASTNode{
+    unique_ptr<ASTNode> initialization, condition, update;
+    vector<unique_ptr<ASTNode>> body;
 
+    ForNode(unique_ptr<ASTNode> init, unique_ptr<ASTNode> condi, unique_ptr<ASTNode> up, vector<unique_ptr<ASTNode>> b)
+        : initialization(move(init)), condition(move(condi)), update(move(up)), body(move(b)){}
+
+    void print() const override {
+        cout << "for (";
+        initialization->print();
+        cout << "; ";
+        condition->print();
+        cout << "; ";
+        update->print();
+        cout << ") { ";
+        for (auto& stmt : body) stmt->print();
+        cout << " }";
+    }
+};
+
+enum class IncDecType {PreIncrement, PostIncrement, PreDecrement, PostDecrement};
+
+struct IncDecNode : ASTNode {
+    string varName;
+    IncDecType type;
+
+    IncDecNode(const string& name, IncDecType t): varName(name),type(t){}
+
+    void print() const override {
+        if (type == IncDecType::PreIncrement) cout << "++" << varName;
+        else if (type == IncDecType::PostIncrement) cout << varName << "++" ;
+        else if (type == IncDecType::PreDecrement) cout << "--" << varName;
+        else cout << varName << "--" ;
+    }
+};
 
 // ================ Parser ==================
 
@@ -491,6 +542,18 @@ private:
             }
 
             return make_unique<ExitNode>(unique_ptr<ASTNode>(expr.release()));
+        }
+        else if(((peek().tokenType == PlusPlus_Token || peek().tokenType == MinusMinus_Token) && peek(1).tokenType == Identifier_Token)){
+            TokenType op = consume().tokenType;
+            string var = consume().token;
+            IncDecType type = (op == PlusPlus_Token) ? IncDecType::PreIncrement : IncDecType::PreDecrement;
+            return make_unique<IncDecNode>(var,type);
+        }
+        else if((peek().tokenType == Identifier_Token && (peek(1).tokenType == PlusPlus_Token || peek(1).tokenType == MinusMinus_Token))){
+            string var = consume().token;
+            TokenType op = consume().tokenType;
+            IncDecType type = (op == PlusPlus_Token) ? IncDecType::PostIncrement : IncDecType::PostDecrement;
+            return make_unique<IncDecNode>(var,type);
         }
         else if(peek().tokenType == PrintNewLine_Token){
             consume(); // print token
@@ -575,6 +638,9 @@ private:
         else if (peek().tokenType == While_Token){
             return parseWhileStatement();
         }
+        else if (peek().tokenType == For_Token){
+            return parseForStatement();
+        }
         else if (peek().tokenType == If_Token){
             return parseIfStatement();
         }
@@ -610,7 +676,7 @@ private:
     /// @return a full binary expression with operator * or /
     unique_ptr<ASTNode> parseTerm(){
         auto node = parseFactor();
-        while(peek().tokenType == Star_Token || peek().tokenType == Slash_Token){
+        while(peek().tokenType == Star_Token || peek().tokenType == Slash_Token || peek().tokenType == Mod_Token){
             string op = peek().token;
             consume();
             auto right = parseFactor();
@@ -623,7 +689,24 @@ private:
     /// @brief used for making or calling different function and making valid ast
     /// @return a number node or whole binary expression
     unique_ptr<ASTNode> parseFactor(){
-        if(match(Number_Token)){
+        if(((peek().tokenType == PlusPlus_Token || peek().tokenType == MinusMinus_Token) && peek(1).tokenType == Identifier_Token)){
+            TokenType op = consume().tokenType;
+            string var = consume().token;
+            IncDecType type = (op == PlusPlus_Token) ? IncDecType::PreIncrement : IncDecType::PreDecrement;
+            return make_unique<IncDecNode>(var,type);
+        }
+        else if((peek().tokenType == Identifier_Token && (peek(1).tokenType == PlusPlus_Token || peek(1).tokenType == MinusMinus_Token))){
+            string var = consume().token;
+            TokenType op = consume().tokenType;
+            IncDecType type = (op == PlusPlus_Token) ? IncDecType::PostIncrement : IncDecType::PostDecrement;
+            return make_unique<IncDecNode>(var,type);
+        }
+        else if(peek().tokenType == Minus_Token){
+            consume(); // - 
+            auto operand = parseFactor();
+            return make_unique<UnaryOperatorNode>("-",move(operand));
+        }
+        else if(match(Number_Token)){
             return make_unique<NumberNode>(Tokens[pos - 1].value);
         }
         else if (match(Identifier_Token)) {
@@ -652,10 +735,22 @@ private:
             vector<unique_ptr<ASTNode>> block;
             while(!match(Close_Brace_Token)){
                 auto stmt = parseStatement();
-                if (!stmt || !match(Semicolon_Token)){
+                if (!stmt){
                     cerr << "Expected ';' inside if block" << endl;
                     return vector<unique_ptr<ASTNode>>();
                 }
+
+                bool isBlockish =
+                    dynamic_cast<IfNode*>(stmt.get()) ||
+                    dynamic_cast<WhileNode*>(stmt.get()) ||
+                    dynamic_cast<ForNode*>(stmt.get()) ||
+                    dynamic_cast<EndNode*>(stmt.get());
+
+                if (!isBlockish && !match(Semicolon_Token)) {
+                    cerr << "Expected ';' inside block" << endl;
+                    return vector<unique_ptr<ASTNode>>();
+                }
+
                 block.push_back(move(stmt));
             }
             return block;
@@ -713,14 +808,77 @@ private:
         vector<unique_ptr<ASTNode>> body;
         while(!match(Close_Brace_Token)){
             auto stmt = parseStatement();
-            if (!stmt || !match(Semicolon_Token)){
+            if (!stmt){
                 cerr << "Exprected ';' inside while loop" <<endl;
                 return nullptr;
             }
+
+            bool isBlockish =
+                dynamic_cast<IfNode*>(stmt.get()) ||
+                dynamic_cast<WhileNode*>(stmt.get()) ||
+                dynamic_cast<ForNode*>(stmt.get()) ||
+                dynamic_cast<EndNode*>(stmt.get());
+
+            if (!isBlockish && !match(Semicolon_Token)) {
+                cerr << "Expected ';' inside block" << endl;
+                return nullptr;
+            }
+
             body.push_back(move(stmt));
         }
         return make_unique<WhileNode>(move(condition),move(body));
     }
+
+    unique_ptr<ASTNode> parseForStatement(){
+        consume(); // for
+        if(!match(Open_Parentheses_Token)){
+            cerr<<"Expected '(' after 'while'" << endl;
+            return {};
+        }
+        auto initialization = parseStatement();
+        if(!match(Semicolon_Token)){
+            cerr<<"Expected ';' after 'for initialization'" << endl;
+            return {};
+        }
+        auto condition = parseExpression();
+        if(!match(Semicolon_Token)){
+            cerr<<"Expected ';' after 'for condition'" << endl;
+            return {};
+        }
+        auto update = parseStatement();
+        if(!match(Close_Parentheses_Token)){
+            cerr<<"Expected ')' after 'condition'" << endl;
+            return {};
+        }
+        if(!match(Open_Brace_Token)){
+            cerr<<"Expected '{' to start while block" << endl;
+            return {};
+        }
+
+        vector<unique_ptr<ASTNode>> body;
+        while(!match(Close_Brace_Token)){
+            auto stmt = parseStatement();
+            if (!stmt){
+                cerr << "Exprected ';' inside while loop" <<endl;
+                return nullptr;
+            }
+
+            bool isBlockish =
+                dynamic_cast<IfNode*>(stmt.get()) ||
+                dynamic_cast<WhileNode*>(stmt.get()) ||
+                dynamic_cast<ForNode*>(stmt.get()) ||
+                dynamic_cast<EndNode*>(stmt.get());
+
+            if (!isBlockish && !match(Semicolon_Token)) {
+                cerr << "Expected ';' inside block" << endl;
+                return nullptr;
+            }
+
+            body.push_back(move(stmt));
+        }
+        return make_unique<ForNode>(move(initialization),move(condition),move(update),move(body));        
+    }
+
 
     string escapeString(string str){
         string result;
@@ -816,12 +974,18 @@ public:
             unique_ptr<ASTNode> expr = parseStatement();
             if(!expr){cerr<<"Error : problem when parsing expression";}
 
-            if(!match(Semicolon_Token)){
-                cerr<< "Syntax Error: expected ';' at position " << pos 
-                    << " (near token '" << peek().token << "')" << endl;
+            bool isBlockish =
+                dynamic_cast<IfNode*>(expr.get()) ||
+                dynamic_cast<WhileNode*>(expr.get()) ||
+                dynamic_cast<ForNode*>(expr.get()) ||
+                dynamic_cast<EndNode*>(expr.get());
+                    
+            if (!isBlockish && !match(Semicolon_Token)) {
+                cerr << "Syntax Error: expected ';' at position " << pos 
+                     << " (near token '" << peek().token << "')" << endl;
                 return {};
             }
-
+            
             lines.push_back(move(expr));
         }
 
@@ -862,7 +1026,24 @@ public:
                     assemblyCode.push_back("    call print_string");
                 }
             }
-
+            else if(auto* idn = dynamic_cast<IncDecNode*>(pn->value.get())){
+                generateCode(idn);
+                assemblyCode.push_back("    mov rdi, rax");
+                assemblyCode.push_back("    call print_number");
+            }
+            else if(auto* bon = dynamic_cast<BinaryOperatorNode*>(pn->value.get())){
+                generateCode(bon);
+                assemblyCode.push_back("    mov rdi, rax");
+                assemblyCode.push_back("    call print_number");
+            }
+            else if (auto* un = dynamic_cast<UnaryOperatorNode*>(pn->value.get())){
+                generateCode(un);
+                if (un->op == "-") assemblyCode.push_back("    neg rax");
+                else {
+                    cerr << "Unsupported unary operator: " << un->op <<endl;
+                    exit(1);
+                }
+            }
         }
         if (auto* pn = dynamic_cast<PrintNewLineNode*>(node)) {
             if(auto* num = dynamic_cast<NumberNode*>(pn->value.get())){
@@ -890,6 +1071,24 @@ public:
                     assemblyCode.push_back("    mov rsi, " + label + "_msg");
                     assemblyCode.push_back("    mov rdx, " + label + "_len");
                     assemblyCode.push_back("    call print_string");
+                }
+            }
+            else if(auto* idn = dynamic_cast<IncDecNode*>(pn->value.get())){
+                generateCode(idn);
+                assemblyCode.push_back("    mov rdi, rax");
+                assemblyCode.push_back("    call print_number");
+            }
+            else if(auto* bon = dynamic_cast<BinaryOperatorNode*>(pn->value.get())){
+                generateCode(bon);
+                assemblyCode.push_back("    mov rdi, rax");
+                assemblyCode.push_back("    call print_number");
+            }
+            else if (auto* un = dynamic_cast<UnaryOperatorNode*>(pn->value.get())){
+                generateCode(un);
+                if (un->op == "-") assemblyCode.push_back("    neg rax");
+                else {
+                    cerr << "Unsupported unary operator: " << un->op <<endl;
+                    exit(1);
                 }
             }
             assemblyCode.push_back("    ; newline");
@@ -962,6 +1161,53 @@ public:
             assemblyCode.push_back("    jmp " + startLabel);
             assemblyCode.push_back(endLabel+":");
         }
+        else if (auto* fn = dynamic_cast<ForNode*>(node)){
+            static int loopId = 0;
+            int id = loopId++;
+
+            string startLabel = "for_start_" + to_string(id);
+            string endLabel = "for_end_" + to_string(id);
+
+            if (fn->initialization) generateCode(fn->initialization.get());
+            assemblyCode.push_back(startLabel + ":");
+            if(fn->condition) {
+                generateCode(fn->condition.get());
+                assemblyCode.push_back("    cmp rax, 0");
+                assemblyCode.push_back("    je " + endLabel);
+            }
+
+            for (auto& stmt : fn->body) generateCode(stmt.get());
+
+            if (fn->update) generateCode(fn->update.get());
+            assemblyCode.push_back("    jmp " + startLabel);
+            assemblyCode.push_back(endLabel+":");
+        }
+        else if (auto* idn = dynamic_cast<IncDecNode*>(node)){
+            if(variableOffsets.find(idn->varName) == variableOffsets.end()){
+                cerr << "Error: variable '" << idn->varName << "' not declared\n";
+                exit(1);
+            }
+            int offset = variableOffsets[idn->varName];
+            string off = "[rbp" + (offset < 0 ? to_string(offset) : "+" + to_string(offset)) + "]";
+            switch(idn->type){
+                case IncDecType::PreIncrement:
+                    assemblyCode.push_back("    inc qword " + off);
+                    assemblyCode.push_back("    mov rax, "+ off);
+                    break;
+                case IncDecType::PostIncrement:
+                    assemblyCode.push_back("    mov rax, "+ off);
+                    assemblyCode.push_back("    inc qword " + off);
+                    break;
+                case IncDecType::PreDecrement:
+                    assemblyCode.push_back("    dec qword " + off);
+                    assemblyCode.push_back("    mov rax, "+ off);
+                    break;
+                case IncDecType::PostDecrement:
+                    assemblyCode.push_back("    mov rax, "+ off);
+                    assemblyCode.push_back("    dec qword " + off);
+                    break;
+            }    
+        }
         else if (auto* en = dynamic_cast<ExitNode*>(node)) {
             generateCode(en->value.get()); 
             assemblyCode.push_back("    mov rdi, rax");   // 1st argument to exit
@@ -986,13 +1232,18 @@ public:
 
             string op = binOp->op;
             
-            if (op == "+" || op == "-" || op == "*" || op == "/"){
+            if (op == "+" || op == "-" || op == "*" || op == "/" || op == "%"){
                 if(op == "+") assemblyCode.push_back("    add rax, rbx");
                 else if(op == "-") assemblyCode.push_back("    sub rax, rbx");
                 else if(op == "*") assemblyCode.push_back("    imul rax, rbx");
                 else if(op == "/") {
                     assemblyCode.push_back("    cqo");          // Sign extend rax -> rdx:rax
                     assemblyCode.push_back("    idiv rbx");     // Divide rdx:rax by rbx
+                }
+                else if(op == "%") {
+                    assemblyCode.push_back("    cqo");
+                    assemblyCode.push_back("    idiv rbx");
+                    assemblyCode.push_back("    mov rax, rdx");
                 }
             }
             else{
@@ -1006,6 +1257,14 @@ public:
                 else if (op == ">=") setInstr = "setge";
                 assemblyCode.push_back("    " + setInstr + " al");
                 assemblyCode.push_back("    movzx rax, al");
+            }
+        }
+        else if (auto* un = dynamic_cast<UnaryOperatorNode*>(node)){
+            generateCode(un->operand.get());
+            if (un->op == "-") assemblyCode.push_back("    neg rax");
+            else {
+                cerr << "Unsupported unary operator: " << un->op <<endl;
+                exit(1);
             }
         }
     }
