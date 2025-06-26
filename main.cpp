@@ -48,6 +48,10 @@ enum TokenType{
     Slash_Token,
     Mod_Token,
 
+    // unary token
+
+    Not_Token,
+
     // Assignment Tokens
 
     Equal_Token,
@@ -66,6 +70,11 @@ enum TokenType{
     Greater_Token,
     GreaterEqual_Token,
 
+    // Logical Token
+
+    And_Token,
+    Or_Token,
+    
     // Brackets Tokens
 
     Open_Brace_Token,
@@ -98,12 +107,15 @@ string TokenTypeToString(TokenType type) {
         case While_Token : return "While_Token";
         case For_Token : return "For_Token";
         case DoubleQuotes_Token: return "DoubleQuotes_Token";
+        case Not_Token: return "Not_Token";
         case Plus_Token: return "Plus_Token";
         case Minus_Token: return "Minus_Token";
         case Star_Token: return "Star_Token";
         case Slash_Token: return "Slash_Token";
         case Mod_Token: return "Mod_Token";
         case Equal_Token: return "Equal_Token";
+        case And_Token: return "And_Token";
+        case Or_Token:  return "Or_Token";
         case Exit_Token: return "Exit_Token";
         case End_Token: return "End_Token";
         case Print_Token: return "Print_Token";
@@ -164,7 +176,8 @@ private:
         {')', Close_Parentheses_Token},
         {';', Semicolon_Token},
         {'<', Less_Token},  
-        {'>', Greater_Token}            
+        {'>', Greater_Token},
+        {'!', Not_Token},            
     };
 
     unordered_map<string,TokenType> doubleCharToken = {
@@ -173,7 +186,9 @@ private:
         {"<=",LessEqual_Token},
         {">=",GreaterEqual_Token},
         {"++",PlusPlus_Token},
-        {"--",MinusMinus_Token}
+        {"--",MinusMinus_Token},
+        {"&&",And_Token},
+        {"||",Or_Token}
     };
 
     unordered_map<string,TokenType> keywordToken = {
@@ -651,6 +666,22 @@ private:
         return parseExpression();
     }
 
+    unique_ptr<ASTNode> parseLogical(){
+        auto node = parseExpression();
+        while(node){
+            if(match(And_Token)){
+                auto right = parseExpression();
+                node = make_unique<BinaryOperatorNode>(move(node),"&&",move(node));
+            }
+            else if (match(Or_Token)){
+                auto right = parseExpression();
+                node = make_unique<BinaryOperatorNode>(move(node),"||",move(node));
+            }
+            else break;
+        }
+        return node;
+    }
+
     /// @brief for making + and - token into binary expression
     /// @return a full binary expression with operator + or -
     unique_ptr<ASTNode> parseExpression(){
@@ -706,6 +737,11 @@ private:
             auto operand = parseFactor();
             return make_unique<UnaryOperatorNode>("-",move(operand));
         }
+        else if(peek().tokenType == Not_Token){
+            consume(); // !
+            auto operand = parseFactor();
+            return make_unique<UnaryOperatorNode>("!",move(operand));
+        }
         else if(match(Number_Token)){
             return make_unique<NumberNode>(Tokens[pos - 1].value);
         }
@@ -718,6 +754,9 @@ private:
                 cerr<<"Error : expected ')' at position "<< pos << endl;
             }
             return node;
+        }
+        else if(peek().tokenType == And_Token || peek().tokenType == Or_Token){
+            return parseLogical();
         }
         else{
             cerr << "Unexpected token at position " << pos << " : " << peek().token << endl;
@@ -1200,7 +1239,7 @@ public:
                     assemblyCode.push_back("    mov rax, "+ off);
                     assemblyCode.push_back("    dec qword " + off);
                     break;
-            }    
+            }
         }
         else if (auto* en = dynamic_cast<ExitNode*>(node)) {
             generateCode(en->value.get()); 
@@ -1214,6 +1253,8 @@ public:
             assemblyCode.push_back("    syscall");
         }
         else if (auto* binOp = dynamic_cast<BinaryOperatorNode*>(node)) {
+            int andCount = 0;
+            int orCount = 0;
             // Evaluate left operand
             generateCode(binOp->left.get());
             assemblyCode.push_back("    push rax");  // Save left value on stack
@@ -1240,6 +1281,46 @@ public:
                     assemblyCode.push_back("    mov rax, rdx");
                 }
             }
+            else if (op == "&&"){
+                string falseLabel = "and_false_" + to_string(andCount);
+                string endLabel = "and_end_" + to_string(andCount);
+                andCount++;
+                generateCode(binOp->left.get());
+                assemblyCode.push_back("    cmp rax, 0");
+                assemblyCode.push_back("    je " + falseLabel);
+
+                generateCode(binOp->right.get());
+                assemblyCode.push_back("    cmp rax, 0");
+                assemblyCode.push_back("    je " + falseLabel);
+
+                assemblyCode.push_back("    mov rax, 1");
+                assemblyCode.push_back("    jmp " + endLabel);
+
+                assemblyCode.push_back(falseLabel + ":");
+                assemblyCode.push_back("    mov rax, 0");
+
+                assemblyCode.push_back(endLabel + ":");
+            }
+            else if (op == "||"){
+                string trueLabel = "or_false_" + to_string(orCount);
+                string endLabel = "or_end_" + to_string(orCount);
+                orCount++;
+                generateCode(binOp->left.get());
+                assemblyCode.push_back("    cmp rax, 0");
+                assemblyCode.push_back("    je " + trueLabel);
+
+                generateCode(binOp->right.get());
+                assemblyCode.push_back("    cmp rax, 0");
+                assemblyCode.push_back("    je " + trueLabel);
+
+                assemblyCode.push_back("    mov rax, 0");
+                assemblyCode.push_back("    jmp " + endLabel);
+
+                assemblyCode.push_back(trueLabel + ":");
+                assemblyCode.push_back("    mov rax, 1");
+
+                assemblyCode.push_back(endLabel + ":");
+            }
             else{
                 assemblyCode.push_back("    cmp rax, rbx");
                 string setInstr;
@@ -1256,6 +1337,11 @@ public:
         else if (auto* un = dynamic_cast<UnaryOperatorNode*>(node)){
             generateCode(un->operand.get());
             if (un->op == "-") assemblyCode.push_back("    neg rax");
+            else if (un->op == "!") {
+                assemblyCode.push_back("    cmp rax, 0");
+                assemblyCode.push_back("    mov rax, 0");
+                assemblyCode.push_back("    sete al");
+            }
             else {
                 cerr << "Unsupported unary operator: " << un->op <<endl;
                 exit(1);
