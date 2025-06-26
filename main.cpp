@@ -32,6 +32,8 @@ enum TokenType{
     For_Token,
     Exit_Token,
     End_Token,
+    Break_Token,
+    Continue_Token,
 
     // General Token
 
@@ -106,6 +108,8 @@ string TokenTypeToString(TokenType type) {
         case MinusMinus_Token : return "MinusMinus_Token";
         case While_Token : return "While_Token";
         case For_Token : return "For_Token";
+        case Break_Token : return "Break_Token";
+        case Continue_Token : return "Continue_Token";
         case DoubleQuotes_Token: return "DoubleQuotes_Token";
         case Not_Token: return "Not_Token";
         case Plus_Token: return "Plus_Token";
@@ -200,6 +204,8 @@ private:
         {"else",Else_Token},
         {"while",While_Token},
         {"for",For_Token},
+        {"contine",Continue_Token},
+        {"break",Break_Token},
         {"exit",Exit_Token},
         {"end",End_Token}
     };
@@ -413,11 +419,23 @@ struct PrintNewLineNode : ASTNode{
     }
 };
 struct EndNode : ASTNode{
-    EndNode(){};
     void print() const override {
         cout<<"-------- code ended ----------";
     }
 };
+
+struct BreakNode : ASTNode {
+    void print() const override {
+        cout << "break" << endl;
+    }
+};
+
+struct ContinueNode : ASTNode{
+    void print() const override {
+        cout << "continue" << endl;
+    }
+};
+
 
 struct IfNode : ASTNode{
     vector<pair<unique_ptr<ASTNode>,vector<unique_ptr<ASTNode>>>> conditionalBlock;
@@ -659,6 +677,12 @@ private:
         else if (peek().tokenType == If_Token){
             return parseIfStatement();
         }
+        else if (match(Break_Token)){
+            return make_unique<BreakNode>();
+        }
+        else if (match(Continue_Token)){
+            return make_unique<ContinueNode>();
+        }
         else if(peek().tokenType == End_Token){
             consume();
             return make_unique<EndNode>();
@@ -671,11 +695,11 @@ private:
         while(node){
             if(match(And_Token)){
                 auto right = parseExpression();
-                node = make_unique<BinaryOperatorNode>(move(node),"&&",move(node));
+                node = make_unique<BinaryOperatorNode>(move(node),"&&",move(right));
             }
             else if (match(Or_Token)){
                 auto right = parseExpression();
-                node = make_unique<BinaryOperatorNode>(move(node),"||",move(node));
+                node = make_unique<BinaryOperatorNode>(move(node),"||",move(right));
             }
             else break;
         }
@@ -739,6 +763,16 @@ private:
         }
         else if(peek().tokenType == Not_Token){
             consume(); // !
+
+            if (match(Open_Parentheses_Token)) {
+                auto expr = parseLogical();
+                if (!match(Close_Parentheses_Token)) {
+                    cerr << "Expexted ')' after !(...) at position " << pos << endl;
+                    throw runtime_error("Error: unmatched ')'");
+                }
+                return make_unique<UnaryOperatorNode>("!",move(expr));
+            }
+
             auto operand = parseFactor();
             return make_unique<UnaryOperatorNode>("!",move(operand));
         }
@@ -800,7 +834,7 @@ private:
                 cerr<<"Expected '(' after 'if'" << endl;
                 return {};
             }
-            auto condi = parseExpression();
+            auto condi = parseLogical();
             if(!match(Close_Parentheses_Token)){
                 cerr<<"Expected ')' after 'condition'" << endl;
                 return {};
@@ -1033,6 +1067,9 @@ public:
 
     void generateCode(ASTNode* node) {
         static int i = 0;
+        vector<string> continueLabel;
+        vector<string> breakLabel;
+
         if (auto* num = dynamic_cast<NumberNode*>(node)) {
             // Literal value: mov rax, immediate
             assemblyCode.push_back("    mov rax, " + to_string(num->value));
@@ -1186,6 +1223,9 @@ public:
             string startLabel = "while_start_" + to_string(id);
             string endLabel = "while_end_" + to_string(id);
 
+            continueLabel.push_back(startLabel);
+            breakLabel.push_back(endLabel);
+
             assemblyCode.push_back(startLabel +":");
             generateCode(wn->condition.get());
             assemblyCode.push_back("    cmp rax, 0");
@@ -1193,6 +1233,9 @@ public:
             for(auto& stmt : wn->body) generateCode(stmt.get());
             assemblyCode.push_back("    jmp " + startLabel);
             assemblyCode.push_back(endLabel+":");
+
+            continueLabel.pop_back();
+            breakLabel.pop_back();
         }
         else if (auto* fn = dynamic_cast<ForNode*>(node)){
             static int loopId = 0;
@@ -1200,6 +1243,9 @@ public:
 
             string startLabel = "for_start_" + to_string(id);
             string endLabel = "for_end_" + to_string(id);
+
+            continueLabel.push_back(startLabel);
+            breakLabel.push_back(endLabel);
 
             if (fn->initialization) generateCode(fn->initialization.get());
             assemblyCode.push_back(startLabel + ":");
@@ -1214,6 +1260,9 @@ public:
             if (fn->update) generateCode(fn->update.get());
             assemblyCode.push_back("    jmp " + startLabel);
             assemblyCode.push_back(endLabel+":");
+
+            continueLabel.pop_back();
+            breakLabel.pop_back();
         }
         else if (auto* idn = dynamic_cast<IncDecNode*>(node)){
             if(variableOffsets.find(idn->varName) == variableOffsets.end()){
@@ -1346,6 +1395,20 @@ public:
                 cerr << "Unsupported unary operator: " << un->op <<endl;
                 exit(1);
             }
+        }
+        else if (dynamic_cast<BreakNode*>(node)){
+            if(breakLabel.empty()){
+                cerr << "Error: 'break' used outside of loop"<<endl;
+                exit(1);
+            }
+            assemblyCode.push_back("    jmp " + breakLabel.back());
+        }
+        else if (dynamic_cast<ContinueNode*>(node)){
+            if(continueLabel.empty()){
+                cerr << "Error: 'continue' used outside of loop"<<endl;
+                exit(1);
+            }
+            assemblyCode.push_back("    jmp " + continueLabel.back());
         }
     }
 

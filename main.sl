@@ -1,13 +1,13 @@
-laile a = 1;
-laile b = 0;
+laile x = 0;
 
-if(a && b){
-    println("should not print");
-}
-else {
-    println("correct: false &&");
-}
-
-if (a || b){
-    println("correct: true ||");
+while (x < 5) {
+    if (x == 2){
+        x++;
+        continue;
+    }
+    if (x == 4){
+        break;
+    }
+    println(x);
+    x++;
 }
