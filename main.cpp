@@ -999,8 +999,10 @@ private:
         }
         return result;
     }
-
-public:
+    vector<string> continueLabel;
+    vector<string> breakLabel;
+    
+    public:
     vector<string> assemblyCode;
 
     /// @brief for initiating tokens
@@ -1067,8 +1069,6 @@ public:
 
     void generateCode(ASTNode* node) {
         static int i = 0;
-        vector<string> continueLabel;
-        vector<string> breakLabel;
 
         if (auto* num = dynamic_cast<NumberNode*>(node)) {
             // Literal value: mov rax, immediate
