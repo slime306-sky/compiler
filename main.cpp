@@ -43,6 +43,7 @@ enum class TokenType{
     EndOfLine,
     Identifier,
     DoubleQuotes,
+    Comma,
 
     // Arithmatic Tokens
 
@@ -110,6 +111,7 @@ string TokenTypeToString(TokenType type) {
         case TokenType::MinusMinus :          return "MinusMinus_Token";
         case TokenType::While :               return "While_Token";
         case TokenType::For :                 return "For_Token";
+        case TokenType::Comma :               return "Comma_Token";
         case TokenType::Break :               return "Break_Token";
         case TokenType::Continue :            return "Continue_Token";
         case TokenType::DoubleQuotes:         return "DoubleQuotes_Token";
@@ -185,7 +187,8 @@ private:
         {';', TokenType::Semicolon},
         {'<', TokenType::Less},  
         {'>', TokenType::Greater},
-        {'!', TokenType::Not},            
+        {'!', TokenType::Not},          
+        {',', TokenType::Comma},  
     };
 
     unordered_map<string,TokenType> doubleCharToken = {
@@ -519,13 +522,16 @@ struct IncDecNode : ASTNode {
 
 struct FunctionNode : ASTNode {
     string name;
+    vector<string> parameters; 
     vector<unique_ptr<ASTNode>> body;
 
-    FunctionNode(string n, vector<unique_ptr<ASTNode>> b) 
-        : name(move(n)),body(move(b)) {}
+    FunctionNode(string n, vector<string> parm, vector<unique_ptr<ASTNode>> b) 
+        : name(move(n)),parameters(move(parm)),body(move(b)) {}
     
     void print() const override {
-        cout << "fun " << name << "{ ";
+        cout << "fun " << name << "( ";
+        for (const auto& p : parameters) cout << p << ",";
+        cout << ") { ";
         for (auto& stmt : body) stmt->print();
         cout << " }" << endl;
     }
@@ -533,11 +539,14 @@ struct FunctionNode : ASTNode {
 
 struct FunctionCallNode : ASTNode {       
     string name;
+    vector<unique_ptr<ASTNode>> arguments;
     
-    FunctionCallNode(string n) : name(move(n)) {}
+    FunctionCallNode(string n, vector<unique_ptr<ASTNode>> args) : name(move(n)),arguments(move(args)) {}
 
     void print() const override {
-        cout << name << "()" << endl;
+        cout << name << "(";
+        for (const auto& p : arguments) p->print();
+        cout << ")"  << endl;
     }
 };  
 
@@ -625,6 +634,18 @@ private:
                 cerr << "Error: expected () after function name" << endl;
                 return {};
             }
+            vector<string> parm;
+            while(!match(TokenType::Close_Parentheses)){
+                if(peek().tokenType == TokenType::Identifier){
+                    parm.push_back(consume().token);
+                    consume();
+                }
+                else{
+                    cerr << "Expected parameter name" << endl;
+                    exit(1);
+                }
+            }
+
             if(!match(TokenType::Open_Brace)) {
                 cerr << "Error: expected { after function declaration" << endl;
                 return {};
@@ -838,8 +859,18 @@ private:
         else if(peek().tokenType == TokenType::Identifier && peek(1).tokenType == TokenType::Open_Parentheses) {
             string name = consume().token;
             match(TokenType::Open_Parentheses);
-            match(TokenType::Close_Parentheses);
-            return make_unique<FunctionCallNode>(name);
+            vector<unique_ptr<ASTNode>> args;
+            if (match(TokenType::Close_Parentheses)){
+                while(true){
+                    args.push_back(parseLogical());
+                    if (match(TokenType::Close_Parentheses)) break;
+                    if (match(TokenType::Comma)){
+                        cerr << "Expected ',' between arguments";
+                        break;
+                    }
+                }
+            }
+            return make_unique<FunctionCallNode>(name,move(args));
         }
         else if(peek().tokenType == TokenType::Minus){
             consume(); // - 
@@ -1401,8 +1432,23 @@ private:
             }
         }
         else if (auto* fn = dynamic_cast<FunctionNode*>(node)){
-            int startIndex = assemblyCode.size();
             size_t safeStart = assemblyCode.size();
+            int offset = 16;
+            string regs[] = {"rdi","rsi","rdx","rcx","r8","r9"};
+
+            if(fn->parameters.size() > 6){
+                cerr << "Too many arguments" << endl;
+                exit(1);
+            }
+
+            for (int i = 0; i < fn->parameters.size(); i++)
+            {
+                variableOffsets[fn->parameters[i]] = -offset;
+                offset += 8;
+
+                assemblyCode.push_back("    push " + regs[i]);
+            }
+        
 
             for (auto& stmt : fn->body) generateCode(stmt.get());
             
@@ -1432,6 +1478,16 @@ private:
             data += funCode.size();
         }
         else if (auto* fcn = dynamic_cast<FunctionCallNode*>(node)){
+            string regs[] = {"rdi","rsi","rdx","rcx","r8","r9"};
+            if(fcn->arguments.size() > 6){
+                cerr << "Too many arguments" << endl;
+                exit(1);
+            }
+            for (int i = 0;i < fcn->arguments.size();i++){
+                generateCode(fcn->arguments[i].get());
+                assemblyCode.push_back("    mov " + regs[i] + ", rax");
+            }
+
             assemblyCode.push_back("    call " + fcn->name);
         }
         else if (auto* rn = dynamic_cast<ReturnNode*>(node)){

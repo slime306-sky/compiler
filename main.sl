@@ -1,9 +1,5 @@
-fun logic(){
-    laile x = 1;
-    if(x){
-        return 10;
-    }
-    return -2;
+fun add(a,b){
+    return a + b;
 }
 
-println(logic());
+println(logic(6,7));
