@@ -1,16 +1,9 @@
-laile x = 0;
+laile x = 1;
 fun logic(){
-    while (x < 5) {
-        if (x == 2){
-            x++;
-            continue;
-        }
-        if (x == 4){
-            break;
-        }
-        x++;
+    if(x == 1){
+        return 10;
     }
-    return;
+    return -1;
 }
 
 println(logic());
