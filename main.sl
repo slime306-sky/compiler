@@ -1,5 +1,5 @@
-laile x = 1;
 fun logic(){
+    laile x = 1;
     if(x){
         return 10;
     }
