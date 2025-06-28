@@ -13,128 +13,132 @@ using namespace std;
 // ================ Token Kind ==================
 
 /// @brief Which kind of Token is
-enum TokenType{
+enum class TokenType{
 
     // Variable Token
 
-    Number_Token,
-    String_Token,
+    Number,
+    String,
     
     // Keywords Token
 
-    Let_Token,
-    PrintNewLine_Token,
-    Print_Token,
-    If_Token,
-    ElseIf_Token,
-    Else_Token,
-    While_Token,
-    For_Token,
-    Exit_Token,
-    End_Token,
-    Break_Token,
-    Continue_Token,
+    Let,
+    PrintNewLine,
+    Print,
+    If,
+    ElseIf,
+    Else,
+    While,
+    For,
+    Exit,
+    End,
+    Break,
+    Continue,
+    Fun,
+    Return,
 
     // General Token
 
-    Semicolon_Token,
-    EndOfLine_Token,
-    Identifier_Token,
-    DoubleQuotes_Token,
+    Semicolon,
+    EndOfLine,
+    Identifier,
+    DoubleQuotes,
 
     // Arithmatic Tokens
 
-    Plus_Token,
-    Minus_Token,
-    Star_Token,
-    Slash_Token,
-    Mod_Token,
+    Plus,
+    Minus,
+    Star,
+    Slash,
+    Mod,
 
     // unary token
 
-    Not_Token,
+    Not,
 
     // Assignment Tokens
 
-    Equal_Token,
+    Equal,
 
     // increment - decrement token
 
-    PlusPlus_Token,
-    MinusMinus_Token,
+    PlusPlus,
+    MinusMinus,
 
     // Compare Token
 
-    EqualEqual_Token,
-    NotEqual_Token,
-    Less_Token,
-    LessEqual_Token,
-    Greater_Token,
-    GreaterEqual_Token,
+    EqualEqual,
+    NotEqual,
+    Less,
+    LessEqual,
+    Greater,
+    GreaterEqual,
 
     // Logical Token
 
-    And_Token,
-    Or_Token,
+    And,
+    Or,
     
     // Brackets Tokens
 
-    Open_Brace_Token,
-    Close_Brace_Token,
-    Open_Parentheses_Token,
-    Close_Parentheses_Token,
+    Open_Brace,
+    Close_Brace,
+    Open_Parentheses,
+    Close_Parentheses,
 
     // Unknown Tokens
 
-    Unknown_Token,
+    Unknown,
 };
 
 /// @brief This function is like util for debug that converts enum if TokenType into String so we can easy print it
 /// @param type TokenType
 /// @return TokenType into String
 string TokenTypeToString(TokenType type) {
-    switch (type) {
-        case Number_Token: return "Number_Token";
-        case String_Token: return "String_Token";
-        case Semicolon_Token: return "Semicolon_Token";
-        case EndOfLine_Token: return "EndOfLine_Token";
-        case EqualEqual_Token : return "EqualEqual_Token";
-        case NotEqual_Token : return "NotEqual_Token";
-        case Less_Token : return "Less_Token";
-        case LessEqual_Token : return "LessEqual_Token";
-        case Greater_Token : return "Greater_Token";        
-        case GreaterEqual_Token : return "GreaterEqual_Token";
-        case PlusPlus_Token : return "PlusPlus_Token";
-        case MinusMinus_Token : return "MinusMinus_Token";
-        case While_Token : return "While_Token";
-        case For_Token : return "For_Token";
-        case Break_Token : return "Break_Token";
-        case Continue_Token : return "Continue_Token";
-        case DoubleQuotes_Token: return "DoubleQuotes_Token";
-        case Not_Token: return "Not_Token";
-        case Plus_Token: return "Plus_Token";
-        case Minus_Token: return "Minus_Token";
-        case Star_Token: return "Star_Token";
-        case Slash_Token: return "Slash_Token";
-        case Mod_Token: return "Mod_Token";
-        case Equal_Token: return "Equal_Token";
-        case And_Token: return "And_Token";
-        case Or_Token:  return "Or_Token";
-        case Exit_Token: return "Exit_Token";
-        case End_Token: return "End_Token";
-        case Print_Token: return "Print_Token";
-        case PrintNewLine_Token: return "PrintNewLine_Token";
-        case Identifier_Token: return "Identifier_Token";
-        case Let_Token: return "Let_Token";
-        case If_Token: return "If_Token";
-        case ElseIf_Token: return "ElseIf_Token";
-        case Else_Token: return "Else_Token";
-        case Open_Brace_Token: return "Open_Brace_Token";
-        case Close_Brace_Token: return "Close_Brace_Token";
-        case Open_Parentheses_Token: return "Open_Parentheses_Token";
-        case Close_Parentheses_Token: return "Close_Parentheses_Token";
-        case Unknown_Token: return "Unknown_Token";
-        default: return "Error : Unknown_TokenType";
+    switch (type) { 
+        case TokenType::Number:               return "Number_Token";
+        case TokenType::String:               return "String_Token";
+        case TokenType::Semicolon:            return "Semicolon_Token";
+        case TokenType::EndOfLine:            return "EndOfLine_Token";
+        case TokenType::EqualEqual :          return "EqualEqual_Token";
+        case TokenType::NotEqual :            return "NotEqual_Token";
+        case TokenType::Less :                return "Less_Token";
+        case TokenType::LessEqual :           return "LessEqual_Token";
+        case TokenType::Greater :             return "Greater_Token";        
+        case TokenType::GreaterEqual :        return "GreaterEqual_Token";
+        case TokenType::PlusPlus :            return "PlusPlus_Token";
+        case TokenType::MinusMinus :          return "MinusMinus_Token";
+        case TokenType::While :               return "While_Token";
+        case TokenType::For :                 return "For_Token";
+        case TokenType::Break :               return "Break_Token";
+        case TokenType::Continue :            return "Continue_Token";
+        case TokenType::DoubleQuotes:         return "DoubleQuotes_Token";
+        case TokenType::Not:                  return "Not_Token";
+        case TokenType::Plus:                 return "Plus_Token";
+        case TokenType::Minus:                return "Minus_Token";
+        case TokenType::Star:                 return "Star_Token";
+        case TokenType::Slash:                return "Slash_Token";
+        case TokenType::Mod:                  return "Mod_Token";
+        case TokenType::Equal:                return "Equal_Token";
+        case TokenType::And:                  return "And_Token";
+        case TokenType::Or:                   return "Or_Token";
+        case TokenType::Exit:                 return "Exit_Token";
+        case TokenType::End:                  return "End_Token";
+        case TokenType::Print:                return "Print_Token";
+        case TokenType::PrintNewLine:         return "PrintNewLine_Token";
+        case TokenType::Identifier:           return "Identifier_Token";
+        case TokenType::Let:                  return "Let_Token";
+        case TokenType::If:                   return "If_Token";
+        case TokenType::ElseIf:               return "ElseIf_Token";
+        case TokenType::Else:                 return "Else_Token";
+        case TokenType::Fun:                  return "Fun_Token";
+        case TokenType::Return:               return "Return_Token";
+        case TokenType::Open_Brace:           return "Open_Brace_Token";
+        case TokenType::Close_Brace:          return "Close_Brace_Token";
+        case TokenType::Open_Parentheses:     return "Open_Parentheses_Token";
+        case TokenType::Close_Parentheses:    return "Close_Parentheses_Token";
+        case TokenType::Unknown:              return "Unknown_Token";
+        default:                              return "Error : UnknownType";
     }
 }
 
@@ -168,46 +172,48 @@ private:
     string Input;
 
     unordered_map<char,TokenType> singleCharToken = {
-        {'+', Plus_Token},
-        {'-', Minus_Token},
-        {'*', Star_Token},
-        {'/', Slash_Token},
-        {'%', Mod_Token},
-        {'=', Equal_Token},
-        {'{', Open_Brace_Token},
-        {'}', Close_Brace_Token},
-        {'(', Open_Parentheses_Token},
-        {')', Close_Parentheses_Token},
-        {';', Semicolon_Token},
-        {'<', Less_Token},  
-        {'>', Greater_Token},
-        {'!', Not_Token},            
+        {'+', TokenType::Plus},
+        {'-', TokenType::Minus},
+        {'*', TokenType::Star},
+        {'/', TokenType::Slash},
+        {'%', TokenType::Mod},
+        {'=', TokenType::Equal},
+        {'{', TokenType::Open_Brace},
+        {'}', TokenType::Close_Brace},
+        {'(', TokenType::Open_Parentheses},
+        {')', TokenType::Close_Parentheses},
+        {';', TokenType::Semicolon},
+        {'<', TokenType::Less},  
+        {'>', TokenType::Greater},
+        {'!', TokenType::Not},            
     };
 
     unordered_map<string,TokenType> doubleCharToken = {
-        {"==",EqualEqual_Token},
-        {"!=",NotEqual_Token},
-        {"<=",LessEqual_Token},
-        {">=",GreaterEqual_Token},
-        {"++",PlusPlus_Token},
-        {"--",MinusMinus_Token},
-        {"&&",And_Token},
-        {"||",Or_Token}
+        {"==",TokenType::EqualEqual},
+        {"!=",TokenType::NotEqual},
+        {"<=",TokenType::LessEqual},
+        {">=",TokenType::GreaterEqual},
+        {"++",TokenType::PlusPlus},
+        {"--",TokenType::MinusMinus},
+        {"&&",TokenType::And},
+        {"||",TokenType::Or}
     };
 
     unordered_map<string,TokenType> keywordToken = {
-        {"laile",Let_Token},
-        {"println",PrintNewLine_Token},
-        {"print",Print_Token},
-        {"if",If_Token},
-        {"elif",ElseIf_Token},
-        {"else",Else_Token},
-        {"while",While_Token},
-        {"for",For_Token},
-        {"contine",Continue_Token},
-        {"break",Break_Token},
-        {"exit",Exit_Token},
-        {"end",End_Token}
+        {"laile",   TokenType::Let},
+        {"println", TokenType::PrintNewLine},
+        {"print",   TokenType::Print},
+        {"if",      TokenType::If},
+        {"elif",    TokenType::ElseIf},
+        {"else",    TokenType::Else},
+        {"while",   TokenType::While},
+        {"for",     TokenType::For},
+        {"contine", TokenType::Continue},
+        {"break",   TokenType::Break},
+        {"fun",     TokenType::Fun},
+        {"return",  TokenType::Return},
+        {"exit",    TokenType::Exit},
+        {"end",     TokenType::End}
     };
 
 
@@ -265,7 +271,7 @@ public:
             if(isdigit(ch)){
                 int _pos = pos;
                 int value = parseInteger();
-                Tokens.push_back({_pos,Number_Token,to_string(value),value});
+                Tokens.push_back({_pos,TokenType::Number,to_string(value),value});
             }
             else if (doubleCharToken.count(twoChar)){
                 Tokens.push_back({pos,doubleCharToken[twoChar],twoChar,0});
@@ -290,7 +296,7 @@ public:
             
                 consume();
             
-                Tokens.push_back({pos,String_Token,strValue,0});
+                Tokens.push_back({pos,TokenType::String,strValue,0});
             }
             else if(checkIdentifierStart(ch)){
                 int _pos = pos;
@@ -301,7 +307,7 @@ public:
                 if(keywordToken.count(id)){
                     Tokens.push_back({_pos,keywordToken[id],id,0});
                 }else{
-                    Tokens.push_back({_pos,Identifier_Token,id,0});
+                    Tokens.push_back({_pos,TokenType::Identifier,id,0});
                 }
             }
 
@@ -310,12 +316,12 @@ public:
             }
 
             else{
-                Tokens.push_back({pos,Unknown_Token,string(1,ch),0});
+                Tokens.push_back({pos,TokenType::Unknown,string(1,ch),0});
                 cerr<<"Error : Unexpected token" << ch << " position " << pos <<endl;
                 consume();
             }
         }
-        Tokens.push_back({pos,EndOfLine_Token,"EOfL",0});
+        Tokens.push_back({pos,TokenType::EndOfLine,"EOfL",0});
         return Tokens;
     }
 };
@@ -511,6 +517,42 @@ struct IncDecNode : ASTNode {
     }
 };
 
+struct FunctionNode : ASTNode {
+    string name;
+    vector<unique_ptr<ASTNode>> body;
+
+    FunctionNode(string n, vector<unique_ptr<ASTNode>> b) 
+        : name(move(n)),body(move(b)) {}
+    
+    void print() const override {
+        cout << "fun " << name << "{ ";
+        for (auto& stmt : body) stmt->print();
+        cout << " }" << endl;
+    }
+};
+
+struct FunctionCallNode : ASTNode {       
+    string name;
+    
+    FunctionCallNode(string n) : name(move(n)) {}
+
+    void print() const override {
+        cout << name << "()" << endl;
+    }
+};  
+
+struct ReturnNode : ASTNode {
+    unique_ptr<ASTNode> value;
+
+    ReturnNode(unique_ptr<ASTNode> v = nullptr): value(move(v)){}
+
+    void print() const override {
+        cout << "return ";
+        if (value) value->print();
+    }
+};
+
+
 // ================ Parser ==================
 
 /// @brief This is For converting or parsing tokens into ast (Abtract Syntax Tree)
@@ -523,6 +565,7 @@ private:
     static inline unordered_map<string, valueType> variableType;
     static inline unordered_map<string, string> stringStorage;
     static inline unordered_map<string, int64_t> variableOffsets;
+    static inline unordered_map<string, FunctionNode*> functionTable;
     int currentStackOffset = 0;
     int pos = 0;
     int data = 4;
@@ -538,7 +581,7 @@ private:
     /// @return Next Token
     Token peek(int offset = 0){
         if (pos + offset >= Tokens.size()) {
-            return {pos + offset, EndOfLine_Token, "", 0};
+            return {pos + offset, TokenType::EndOfLine, "", 0};
         }
         return Tokens[pos + offset];
     }
@@ -561,62 +604,98 @@ private:
     }
 
     unique_ptr<ASTNode> parseStatement(){
-        if(peek().tokenType == Exit_Token){
+        if(peek().tokenType == TokenType::Exit){
             consume(); // exit token
-            if(!match(Open_Parentheses_Token)){
+            if(!match(TokenType::Open_Parentheses)){
                 cerr << "Syntax Error: expected '(' after 'exit'" << endl;
                 return nullptr;
             }
             auto expr = parseExpression();
 
-            if(!match(Close_Parentheses_Token)){
+            if(!match(TokenType::Close_Parentheses)){
                 cerr << "Syntax Error: expected ')' after exit expression" << endl;
                 return nullptr;
             }
 
             return make_unique<ExitNode>(unique_ptr<ASTNode>(expr.release()));
         }
-        else if(((peek().tokenType == PlusPlus_Token || peek().tokenType == MinusMinus_Token) && peek(1).tokenType == Identifier_Token)){
+        else if(match(TokenType::Fun)){
+            string functionName = consume().token;
+            if(!match(TokenType::Open_Parentheses) || !match(TokenType::Close_Parentheses)) {
+                cerr << "Error: expected () after function name" << endl;
+                return {};
+            }
+            if(!match(TokenType::Open_Brace)) {
+                cerr << "Error: expected { after function declaration" << endl;
+                return {};
+            }
+            vector<unique_ptr<ASTNode>> body;
+            while (!match(TokenType::Close_Brace)){
+                auto stmt = parseStatement();
+                if(!stmt) return {};
+                bool isBlockish =
+                    dynamic_cast<IfNode*>(stmt.get()) ||
+                    dynamic_cast<WhileNode*>(stmt.get()) ||
+                    dynamic_cast<ForNode*>(stmt.get()) ||
+                    dynamic_cast<FunctionNode*>(stmt.get()) ||
+                    dynamic_cast<EndNode*>(stmt.get());
+
+                if (!isBlockish && !match(TokenType::Semicolon)) {
+                    cerr << "Expected ';' inside block" << endl;
+                    return nullptr;
+                }
+                body.push_back(move(stmt));
+            }
+            return make_unique<FunctionNode>(functionName,move(body));
+        }
+        else if(match(TokenType::Return)){
+            if (peek().tokenType == TokenType::Semicolon || peek().tokenType == TokenType::Close_Brace){
+                return make_unique<ReturnNode>();
+            }
+            auto expr = parseLogical();
+            return make_unique<ReturnNode>(move(expr));
+        }
+        else if(((peek().tokenType == TokenType::PlusPlus || peek().tokenType == TokenType::MinusMinus) && peek(1).tokenType == TokenType::Identifier)){
             TokenType op = consume().tokenType;
             string var = consume().token;
-            IncDecType type = (op == PlusPlus_Token) ? IncDecType::PreIncrement : IncDecType::PreDecrement;
+            IncDecType type = (op == TokenType::PlusPlus) ? IncDecType::PreIncrement : IncDecType::PreDecrement;
             return make_unique<IncDecNode>(var,type);
         }
-        else if((peek().tokenType == Identifier_Token && (peek(1).tokenType == PlusPlus_Token || peek(1).tokenType == MinusMinus_Token))){
+        else if((peek().tokenType == TokenType::Identifier && (peek(1).tokenType == TokenType::PlusPlus || peek(1).tokenType == TokenType::MinusMinus))){
             string var = consume().token;
             TokenType op = consume().tokenType;
-            IncDecType type = (op == PlusPlus_Token) ? IncDecType::PostIncrement : IncDecType::PostDecrement;
+            IncDecType type = (op == TokenType::PlusPlus) ? IncDecType::PostIncrement : IncDecType::PostDecrement;
             return make_unique<IncDecNode>(var,type);
         }
-        else if(peek().tokenType == PrintNewLine_Token){
+        else if(peek().tokenType == TokenType::PrintNewLine){
             consume(); // print token
             unique_ptr<ASTNode> expr;
-            if(!match(Open_Parentheses_Token)){
+            if(!match(TokenType::Open_Parentheses)){
                 cerr << "Syntax Error: expected '(' after 'print'" << endl;
                 return nullptr;
             }
-            if(peek().tokenType == String_Token){
+            if(peek().tokenType == TokenType::String){
                 string str = consume().token;
                 expr = make_unique<StringNode>(str);
             }else{
                 expr = parseExpression();
             }
 
-            if(!match(Close_Parentheses_Token)){
+            if(!match(TokenType::Close_Parentheses)){
                 cerr << "Syntax Error: expected ')' after print expression" << endl;
                 return nullptr;
             }
             return make_unique<PrintNewLineNode>(move(expr));
         }
-        else if(peek().tokenType == Print_Token){
+        else if(peek().tokenType == TokenType::Print){
             consume(); // print token
             unique_ptr<ASTNode> expr;
-            if(!match(Open_Parentheses_Token)){
+            if(!match(TokenType::Open_Parentheses)){
                 cerr << "Syntax Error: expected '(' after 'print'" << endl;
                 return nullptr;
             }
 
-            if(peek().tokenType == String_Token){
+            if(peek().tokenType == TokenType::String){
                 
                 string str = consume().token;
                 expr = make_unique<StringNode>(str);
@@ -624,18 +703,18 @@ private:
                 expr = parseExpression();
             }
 
-            if(!match(Close_Parentheses_Token)){
+            if(!match(TokenType::Close_Parentheses)){
                 cerr << "Syntax Error: expected ')' after print expression" << endl;
                 return nullptr;
             }
             return make_unique<PrintNode>(move(expr));
         }
-        else if(peek().tokenType == Let_Token && peek(1).tokenType == Identifier_Token && peek(2).tokenType == Equal_Token){
+        else if(peek().tokenType == TokenType::Let && peek(1).tokenType == TokenType::Identifier && peek(2).tokenType == TokenType::Equal){
             consume(); // let token
             string variableName = consume().token;
             consume(); // =
             unique_ptr<ASTNode> expr;
-            if(peek().tokenType == String_Token){
+            if(peek().tokenType == TokenType::String){
                 string str = consume().token;
                 expr = make_unique<StringNode>(str);
                 variableType[variableName] = valueType::String;
@@ -646,12 +725,12 @@ private:
             }
             return make_unique<AssignmentNode>(variableName,move(expr));
         }
-        else if (peek().tokenType == Identifier_Token && peek(1).tokenType == Equal_Token){
+        else if (peek().tokenType == TokenType::Identifier && peek(1).tokenType == TokenType::Equal){
             string variableName = consume().token;
             consume(); // = 
 
             unique_ptr<ASTNode> expr;
-            if(peek().tokenType == String_Token){
+            if(peek().tokenType == TokenType::String){
                 string str = consume().token;
                 expr = make_unique<StringNode>(str);
             }
@@ -668,22 +747,22 @@ private:
 
             return make_unique<AssignmentNode>(variableName,move(expr));
         }
-        else if (peek().tokenType == While_Token){
+        else if (peek().tokenType == TokenType::While){
             return parseWhileStatement();
         }
-        else if (peek().tokenType == For_Token){
+        else if (peek().tokenType == TokenType::For){
             return parseForStatement();
         }
-        else if (peek().tokenType == If_Token){
+        else if (peek().tokenType == TokenType::If){
             return parseIfStatement();
         }
-        else if (match(Break_Token)){
+        else if (match(TokenType::Break)){
             return make_unique<BreakNode>();
         }
-        else if (match(Continue_Token)){
+        else if (match(TokenType::Continue)){
             return make_unique<ContinueNode>();
         }
-        else if(peek().tokenType == End_Token){
+        else if(peek().tokenType == TokenType::End){
             consume();
             return make_unique<EndNode>();
         }
@@ -693,11 +772,11 @@ private:
     unique_ptr<ASTNode> parseLogical(){
         auto node = parseExpression();
         while(node){
-            if(match(And_Token)){
+            if(match(TokenType::And)){
                 auto right = parseExpression();
                 node = make_unique<BinaryOperatorNode>(move(node),"&&",move(right));
             }
-            else if (match(Or_Token)){
+            else if (match(TokenType::Or)){
                 auto right = parseExpression();
                 node = make_unique<BinaryOperatorNode>(move(node),"||",move(right));
             }
@@ -714,8 +793,8 @@ private:
 
             TokenType tt = peek().tokenType;
 
-            if (tt == EqualEqual_Token || tt == NotEqual_Token || tt == Less_Token || tt == LessEqual_Token ||
-                tt == Greater_Token || tt == GreaterEqual_Token || tt == Plus_Token || tt == Minus_Token){
+            if (tt == TokenType::EqualEqual || tt == TokenType::NotEqual || tt == TokenType::Less || tt == TokenType::LessEqual ||
+                tt == TokenType::Greater || tt == TokenType::GreaterEqual || tt == TokenType::Plus || tt == TokenType::Minus){
 
                 string op = peek().token;
                 consume();
@@ -731,7 +810,7 @@ private:
     /// @return a full binary expression with operator * or /
     unique_ptr<ASTNode> parseTerm(){
         auto node = parseFactor();
-        while(peek().tokenType == Star_Token || peek().tokenType == Slash_Token || peek().tokenType == Mod_Token){
+        while(peek().tokenType == TokenType::Star || peek().tokenType == TokenType::Slash || peek().tokenType == TokenType::Mod){
             string op = peek().token;
             consume();
             auto right = parseFactor();
@@ -744,29 +823,35 @@ private:
     /// @brief used for making or calling different function and making valid ast
     /// @return a number node or whole binary expression
     unique_ptr<ASTNode> parseFactor(){
-        if(((peek().tokenType == PlusPlus_Token || peek().tokenType == MinusMinus_Token) && peek(1).tokenType == Identifier_Token)){
+        if(((peek().tokenType == TokenType::PlusPlus || peek().tokenType == TokenType::MinusMinus) && peek(1).tokenType == TokenType::Identifier)){
             TokenType op = consume().tokenType;
             string var = consume().token;
-            IncDecType type = (op == PlusPlus_Token) ? IncDecType::PreIncrement : IncDecType::PreDecrement;
+            IncDecType type = (op == TokenType::PlusPlus) ? IncDecType::PreIncrement : IncDecType::PreDecrement;
             return make_unique<IncDecNode>(var,type);
         }
-        else if((peek().tokenType == Identifier_Token && (peek(1).tokenType == PlusPlus_Token || peek(1).tokenType == MinusMinus_Token))){
+        else if((peek().tokenType == TokenType::Identifier && (peek(1).tokenType == TokenType::PlusPlus || peek(1).tokenType == TokenType::MinusMinus))){
             string var = consume().token;
             TokenType op = consume().tokenType;
-            IncDecType type = (op == PlusPlus_Token) ? IncDecType::PostIncrement : IncDecType::PostDecrement;
+            IncDecType type = (op == TokenType::PlusPlus) ? IncDecType::PostIncrement : IncDecType::PostDecrement;
             return make_unique<IncDecNode>(var,type);
         }
-        else if(peek().tokenType == Minus_Token){
+        else if(peek().tokenType == TokenType::Identifier && peek(1).tokenType == TokenType::Open_Parentheses) {
+            string name = consume().token;
+            match(TokenType::Open_Parentheses);
+            match(TokenType::Close_Parentheses);
+            return make_unique<FunctionCallNode>(name);
+        }
+        else if(peek().tokenType == TokenType::Minus){
             consume(); // - 
             auto operand = parseFactor();
             return make_unique<UnaryOperatorNode>("-",move(operand));
         }
-        else if(peek().tokenType == Not_Token){
+        else if(peek().tokenType == TokenType::Not){
             consume(); // !
 
-            if (match(Open_Parentheses_Token)) {
+            if (match(TokenType::Open_Parentheses)) {
                 auto expr = parseLogical();
-                if (!match(Close_Parentheses_Token)) {
+                if (!match(TokenType::Close_Parentheses)) {
                     cerr << "Expexted ')' after !(...) at position " << pos << endl;
                     throw runtime_error("Error: unmatched ')'");
                 }
@@ -776,20 +861,20 @@ private:
             auto operand = parseFactor();
             return make_unique<UnaryOperatorNode>("!",move(operand));
         }
-        else if(match(Number_Token)){
+        else if(match(TokenType::Number)){
             return make_unique<NumberNode>(Tokens[pos - 1].value);
         }
-        else if (match(Identifier_Token)) {
+        else if (match(TokenType::Identifier)) {
             return make_unique<VariableNameNode>(Tokens[pos - 1].token);
         }
-        else if(match(Open_Parentheses_Token)){
+        else if(match(TokenType::Open_Parentheses)){
             auto node = parseExpression();
-            if(!match(Close_Parentheses_Token)){
+            if(!match(TokenType::Close_Parentheses)){
                 cerr<<"Error : expected ')' at position "<< pos << endl;
             }
             return node;
         }
-        else if(peek().tokenType == And_Token || peek().tokenType == Or_Token){
+        else if(peek().tokenType == TokenType::And || peek().tokenType == TokenType::Or){
             return parseLogical();
         }
         else{
@@ -806,7 +891,7 @@ private:
         
         auto parseBlock = [&](){
             vector<unique_ptr<ASTNode>> block;
-            while(!match(Close_Brace_Token)){
+            while(!match(TokenType::Close_Brace)){
                 auto stmt = parseStatement();
                 if (!stmt){
                     cerr << "Expected ';' inside if block" << endl;
@@ -817,9 +902,10 @@ private:
                     dynamic_cast<IfNode*>(stmt.get()) ||
                     dynamic_cast<WhileNode*>(stmt.get()) ||
                     dynamic_cast<ForNode*>(stmt.get()) ||
+                    dynamic_cast<FunctionNode*>(stmt.get()) ||
                     dynamic_cast<EndNode*>(stmt.get());
 
-                if (!isBlockish && !match(Semicolon_Token)) {
+                if (!isBlockish && !match(TokenType::Semicolon)) {
                     cerr << "Expected ';' inside block" << endl;
                     return vector<unique_ptr<ASTNode>>();
                 }
@@ -830,16 +916,16 @@ private:
         };
 
         auto parseConditionAndBlock = [&]() -> pair<unique_ptr<ASTNode>,vector<unique_ptr<ASTNode>>> {
-            if(!match(Open_Parentheses_Token)){
+            if(!match(TokenType::Open_Parentheses)){
                 cerr<<"Expected '(' after 'if'" << endl;
                 return {};
             }
             auto condi = parseLogical();
-            if(!match(Close_Parentheses_Token)){
+            if(!match(TokenType::Close_Parentheses)){
                 cerr<<"Expected ')' after 'condition'" << endl;
                 return {};
             }
-            if(!match(Open_Brace_Token)){
+            if(!match(TokenType::Open_Brace)){
                 cerr<<"Expected '{' to start if block" << endl;
                 return {};
             }
@@ -849,11 +935,11 @@ private:
         
         consume(); // if token
         conditionalBlock.push_back(parseConditionAndBlock());
-        while(match(ElseIf_Token)) {
+        while(match(TokenType::ElseIf)) {
             conditionalBlock.push_back(parseConditionAndBlock());
         }
-        if (match(Else_Token)){
-            if(!match(Open_Brace_Token)){
+        if (match(TokenType::Else)){
+            if(!match(TokenType::Open_Brace)){
                 cerr << "Expected '{' after 'else'" << endl;
                 return nullptr;
             }
@@ -864,22 +950,22 @@ private:
 
     unique_ptr<ASTNode> parseWhileStatement(){
         consume(); // while 
-        if(!match(Open_Parentheses_Token)){
+        if(!match(TokenType::Open_Parentheses)){
             cerr<<"Expected '(' after 'while'" << endl;
             return {};
         }
         auto condition = parseExpression();
-        if(!match(Close_Parentheses_Token)){
+        if(!match(TokenType::Close_Parentheses)){
             cerr<<"Expected ')' after 'condition'" << endl;
             return {};
         }
-        if(!match(Open_Brace_Token)){
+        if(!match(TokenType::Open_Brace)){
             cerr<<"Expected '{' to start while block" << endl;
             return {};
         }
 
         vector<unique_ptr<ASTNode>> body;
-        while(!match(Close_Brace_Token)){
+        while(!match(TokenType::Close_Brace)){
             auto stmt = parseStatement();
             if (!stmt){
                 cerr << "Exprected ';' inside while loop" <<endl;
@@ -890,9 +976,10 @@ private:
                 dynamic_cast<IfNode*>(stmt.get()) ||
                 dynamic_cast<WhileNode*>(stmt.get()) ||
                 dynamic_cast<ForNode*>(stmt.get()) ||
+                dynamic_cast<FunctionNode*>(stmt.get()) ||
                 dynamic_cast<EndNode*>(stmt.get());
 
-            if (!isBlockish && !match(Semicolon_Token)) {
+            if (!isBlockish && !match(TokenType::Semicolon)) {
                 cerr << "Expected ';' inside block" << endl;
                 return nullptr;
             }
@@ -904,32 +991,32 @@ private:
 
     unique_ptr<ASTNode> parseForStatement(){
         consume(); // for
-        if(!match(Open_Parentheses_Token)){
+        if(!match(TokenType::Open_Parentheses)){
             cerr<<"Expected '(' after 'while'" << endl;
             return {};
         }
         auto initialization = parseStatement();
-        if(!match(Semicolon_Token)){
+        if(!match(TokenType::Semicolon)){
             cerr<<"Expected ';' after 'for initialization'" << endl;
             return {};
         }
         auto condition = parseExpression();
-        if(!match(Semicolon_Token)){
+        if(!match(TokenType::Semicolon)){
             cerr<<"Expected ';' after 'for condition'" << endl;
             return {};
         }
         auto update = parseStatement();
-        if(!match(Close_Parentheses_Token)){
+        if(!match(TokenType::Close_Parentheses)){
             cerr<<"Expected ')' after 'condition'" << endl;
             return {};
         }
-        if(!match(Open_Brace_Token)){
+        if(!match(TokenType::Open_Brace)){
             cerr<<"Expected '{' to start while block" << endl;
             return {};
         }
 
         vector<unique_ptr<ASTNode>> body;
-        while(!match(Close_Brace_Token)){
+        while(!match(TokenType::Close_Brace)){
             auto stmt = parseStatement();
             if (!stmt){
                 cerr << "Exprected ';' inside while loop" <<endl;
@@ -942,7 +1029,7 @@ private:
                 dynamic_cast<ForNode*>(stmt.get()) ||
                 dynamic_cast<EndNode*>(stmt.get());
 
-            if (!isBlockish && !match(Semicolon_Token)) {
+            if (!isBlockish && !match(TokenType::Semicolon)) {
                 cerr << "Expected ';' inside block" << endl;
                 return nullptr;
             }
@@ -999,6 +1086,16 @@ private:
         }
         return result;
     }
+
+    bool isFunRetValue(FunctionNode* fun){
+        for (auto& stmt : fun->body){
+            if(auto* ret = dynamic_cast<ReturnNode*>(stmt.get())){
+                if (ret->value) return true;
+            }
+        }
+        return false;
+    }
+
     vector<string> continueLabel;
     vector<string> breakLabel;
     
@@ -1027,7 +1124,9 @@ private:
         // Debug token output
         {   
             cout << "=== Tokens ===" << endl;
+            int i = 0;
             for (auto& token : Tokens) {
+                cout << i++ << "-";
                 token.printTokens();
             }
             cout << "==============\n\n\n";
@@ -1039,8 +1138,8 @@ private:
 
         vector<unique_ptr<ASTNode>> lines;
         
-        while(peek().tokenType != EndOfLine_Token){
-            if (peek().tokenType == Semicolon_Token) {
+        while(peek().tokenType != TokenType::EndOfLine){
+            if (peek().tokenType == TokenType::Semicolon) {
                 // Empty statement consume semicolon and continue
                 consume();
                 continue;
@@ -1053,9 +1152,10 @@ private:
                 dynamic_cast<IfNode*>(expr.get()) ||
                 dynamic_cast<WhileNode*>(expr.get()) ||
                 dynamic_cast<ForNode*>(expr.get()) ||
+                dynamic_cast<FunctionNode*>(expr.get()) ||
                 dynamic_cast<EndNode*>(expr.get());
                     
-            if (!isBlockish && !match(Semicolon_Token)) {
+            if (!isBlockish && !match(TokenType::Semicolon)) {
                 cerr << "Syntax Error: expected ';' at position " << pos 
                      << " (near token '" << peek().token << "')" << endl;
                 return {};
@@ -1117,6 +1217,16 @@ private:
                 assemblyCode.push_back("    mov rdi, rax");
                 assemblyCode.push_back("    call print_number");
             }
+            else if (auto* fcn = dynamic_cast<FunctionCallNode*>(pn->value.get())){
+                auto fnIt = functionTable.find(fcn->name);
+                if(fnIt != functionTable.end()){
+                    auto fn = fnIt->second;
+                    if (!isFunRetValue(fn)) return;
+                }
+                generateCode(fcn);
+                assemblyCode.push_back("    mov rdi, rax");
+                assemblyCode.push_back("    call print_number");
+            }
         }
         if (auto* pn = dynamic_cast<PrintNewLineNode*>(node)) {
             if(auto* num = dynamic_cast<NumberNode*>(pn->value.get())){
@@ -1158,6 +1268,16 @@ private:
             }
             else if (auto* un = dynamic_cast<UnaryOperatorNode*>(pn->value.get())){
                 generateCode(un);
+                assemblyCode.push_back("    mov rdi, rax");
+                assemblyCode.push_back("    call print_number");
+            }
+            else if (auto* fcn = dynamic_cast<FunctionCallNode*>(pn->value.get())){
+                auto fnIt = functionTable.find(fcn->name);
+                if(fnIt != functionTable.end()){
+                    auto fn = fnIt->second;
+                    if (!isFunRetValue(fn)) return;
+                }
+                generateCode(fcn);
                 assemblyCode.push_back("    mov rdi, rax");
                 assemblyCode.push_back("    call print_number");
             }
@@ -1289,6 +1409,47 @@ private:
                     assemblyCode.push_back("    dec qword " + off);
                     break;
             }
+        }
+        else if (auto* fn = dynamic_cast<FunctionNode*>(node)){
+            int startIndex = assemblyCode.size();
+            size_t safeStart = assemblyCode.size();
+
+            for (auto& stmt : fn->body) generateCode(stmt.get());
+            
+            int endIndex = assemblyCode.size();
+
+            vector<string> funCode;
+            funCode.push_back(fn->name + ":");
+            funCode.push_back("    push rbp");
+            funCode.push_back("    mov rbp, rsp");
+
+            
+            funCode.insert(funCode.end(), assemblyCode.begin() + safeStart, assemblyCode.begin() + endIndex); // the code of function into funcode vector 
+            
+            funCode.push_back("    pop rbp");
+            funCode.push_back("    ret");
+            
+            // idea is that we add the data or body statement of function into funCode with auto startIndex and endIndex and then remove it from assemblyCode you get it right man it was your idea btw :)
+            
+            // remove's the data or instuction from assembly code
+            assemblyCode.erase(assemblyCode.begin() + safeStart , assemblyCode.begin() + endIndex);
+
+            for (const auto& line: funCode){
+                cout << line << endl;
+            }
+            // inserts it to top of the assembly code and increment the index = 'data'
+            assemblyCode.insert(assemblyCode.begin() + ++data, funCode.begin(), funCode.end());
+            data += funCode.size();
+        }
+        else if (auto* fcn = dynamic_cast<FunctionCallNode*>(node)){
+            assemblyCode.push_back("    call " + fcn->name);
+        }
+        else if (auto* rn = dynamic_cast<ReturnNode*>(node)){
+            if (rn->value) generateCode(rn->value.get());
+            else assemblyCode.push_back("   mov rax, 0");
+            
+            assemblyCode.push_back("    pop rbp");
+            assemblyCode.push_back("    ret");
         }
         else if (auto* en = dynamic_cast<ExitNode*>(node)) {
             generateCode(en->value.get()); 
@@ -1462,12 +1623,17 @@ private:
 
         assemblyCode.push_back("; ----------------------");
         assemblyCode.push_back("; void print_string(char* str, uint64_t len)");
-        assemblyCode.push_back("; rsi = pointer,rdx = length");
+        assemblyCode.push_back("; rsi = pointer, rdx = length");
         assemblyCode.push_back("print_string:");
+        assemblyCode.push_back("    push rsi");
+        assemblyCode.push_back("    push rdx");
         assemblyCode.push_back("    mov rax, 1");
         assemblyCode.push_back("    mov rdi, 1");
         assemblyCode.push_back("    syscall");
+        assemblyCode.push_back("    pop rdx");
+        assemblyCode.push_back("    pop rsi");
         assemblyCode.push_back("    ret");
+
     }
 };
 
@@ -1517,7 +1683,7 @@ int main(int argc,char* argv[]){
     // string input = "2123 + 3134 * 314";
     Parser parser(input);
     vector<unique_ptr<ASTNode>> lines = parser.parse();
-
+    
     for(const auto& ast : lines){
         
         cout<<"ast : ";
