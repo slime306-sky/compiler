@@ -1218,11 +1218,6 @@ private:
                 assemblyCode.push_back("    call print_number");
             }
             else if (auto* fcn = dynamic_cast<FunctionCallNode*>(pn->value.get())){
-                auto fnIt = functionTable.find(fcn->name);
-                if(fnIt != functionTable.end()){
-                    auto fn = fnIt->second;
-                    if (!isFunRetValue(fn)) return;
-                }
                 generateCode(fcn);
                 assemblyCode.push_back("    mov rdi, rax");
                 assemblyCode.push_back("    call print_number");
@@ -1272,11 +1267,6 @@ private:
                 assemblyCode.push_back("    call print_number");
             }
             else if (auto* fcn = dynamic_cast<FunctionCallNode*>(pn->value.get())){
-                auto fnIt = functionTable.find(fcn->name);
-                if(fnIt != functionTable.end()){
-                    auto fn = fnIt->second;
-                    if (!isFunRetValue(fn)) return;
-                }
                 generateCode(fcn);
                 assemblyCode.push_back("    mov rdi, rax");
                 assemblyCode.push_back("    call print_number");
@@ -1446,7 +1436,7 @@ private:
         }
         else if (auto* rn = dynamic_cast<ReturnNode*>(node)){
             if (rn->value) generateCode(rn->value.get());
-            else assemblyCode.push_back("   mov rax, 0");
+            else assemblyCode.push_back("   mov rax, -1");
             
             assemblyCode.push_back("    pop rbp");
             assemblyCode.push_back("    ret");

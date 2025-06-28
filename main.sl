@@ -1,10 +1,9 @@
 laile x = 1;
 fun logic(){
-    if(x == 1){
+    if(x){
         return 10;
     }
-    return -1;
+    return -2;
 }
 
 println(logic());
-println("why");
