@@ -630,15 +630,15 @@ private:
         }
         else if(match(TokenType::Fun)){
             string functionName = consume().token;
-            if(!match(TokenType::Open_Parentheses) || !match(TokenType::Close_Parentheses)) {
-                cerr << "Error: expected () after function name" << endl;
+            if(!match(TokenType::Open_Parentheses)) {
+                cerr << "Error: expected ( after function name" << endl;
                 return {};
             }
             vector<string> parm;
             while(!match(TokenType::Close_Parentheses)){
                 if(peek().tokenType == TokenType::Identifier){
                     parm.push_back(consume().token);
-                    consume();
+                    match(TokenType::Comma);
                 }
                 else{
                     cerr << "Expected parameter name" << endl;
@@ -667,7 +667,7 @@ private:
                 }
                 body.push_back(move(stmt));
             }
-            return make_unique<FunctionNode>(functionName,move(body));
+            return make_unique<FunctionNode>(functionName,move(parm),move(body));
         }
         else if(match(TokenType::Return)){
             if (peek().tokenType == TokenType::Semicolon || peek().tokenType == TokenType::Close_Brace){
@@ -860,11 +860,11 @@ private:
             string name = consume().token;
             match(TokenType::Open_Parentheses);
             vector<unique_ptr<ASTNode>> args;
-            if (match(TokenType::Close_Parentheses)){
+            if (!match(TokenType::Close_Parentheses)){
                 while(true){
                     args.push_back(parseLogical());
                     if (match(TokenType::Close_Parentheses)) break;
-                    if (match(TokenType::Comma)){
+                    if (!match(TokenType::Comma)){
                         cerr << "Expected ',' between arguments";
                         break;
                     }
@@ -1129,6 +1129,7 @@ private:
 
     vector<string> continueLabel;
     vector<string> breakLabel;
+    string currentFunctionEndLabel = "";
     
     public:
     vector<string> assemblyCode;
@@ -1205,7 +1206,7 @@ private:
             // Literal value: mov rax, immediate
             assemblyCode.push_back("    mov rax, " + to_string(num->value));
         }
-        if (auto* pn = dynamic_cast<PrintNode*>(node)) {
+        else if (auto* pn = dynamic_cast<PrintNode*>(node)) {
             if(auto* num = dynamic_cast<NumberNode*>(pn->value.get())){
                 assemblyCode.push_back("    mov rdi, " + to_string(num->value)); // put number in rdi
                 assemblyCode.push_back("    call print_number");
@@ -1254,7 +1255,7 @@ private:
                 assemblyCode.push_back("    call print_number");
             }
         }
-        if (auto* pn = dynamic_cast<PrintNewLineNode*>(node)) {
+        else if (auto* pn = dynamic_cast<PrintNewLineNode*>(node)) {
             if(auto* num = dynamic_cast<NumberNode*>(pn->value.get())){
                 assemblyCode.push_back("    mov rdi, " + to_string(num->value)); // put number in rdi
                 assemblyCode.push_back("    call print_number");
@@ -1311,8 +1312,14 @@ private:
         }
         else if (auto* var = dynamic_cast<VariableNameNode*>(node)) {
             // Load variable at [rbp + offset] into rax
-            int offset = variableOffsets[var->name];
-            assemblyCode.push_back("    mov rax, [rbp" + (offset < 0 ? to_string(offset) : "+" + to_string(offset)) + "]");
+            if (variableOffsets.count(var->name)){
+                int offset = variableOffsets[var->name];
+                string offstr = (offset < 0 ? to_string(offset) : "+" + to_string(offset));
+                assemblyCode.push_back("    mov rax, [rbp" + offstr + "]");
+            }else {
+                cerr << "undefined variable: " << var->name << endl;
+                exit(1);
+            }       
         }
         else if (auto* assign = dynamic_cast<AssignmentNode*>(node)) {
             if(auto* str = dynamic_cast<StringNode*>(assign->value.get())){
@@ -1432,38 +1439,61 @@ private:
             }
         }
         else if (auto* fn = dynamic_cast<FunctionNode*>(node)){
+            unordered_map<string, int64_t> oldOffset = variableOffsets;
+            variableOffsets.clear();
             size_t safeStart = assemblyCode.size();
-            int offset = 16;
-            string regs[] = {"rdi","rsi","rdx","rcx","r8","r9"};
+            
 
             if(fn->parameters.size() > 6){
                 cerr << "Too many arguments" << endl;
                 exit(1);
             }
-
+            vector<string> funCode;
+            while (funCode.size() < 5) {
+                funCode.push_back(""); // or any placeholder string
+            }
+            int insertIndex = 5;
+            int parmOffset = -8;
+            string regs[] = {"rdi","rsi","rdx","rcx","r8","r9"};
             for (int i = 0; i < fn->parameters.size(); i++)
             {
-                variableOffsets[fn->parameters[i]] = -offset;
-                offset += 8;
-
-                assemblyCode.push_back("    push " + regs[i]);
+                string line = "    mov [rbp" + to_string(parmOffset) + "], " + regs[i];
+                funCode.insert(funCode.begin() + insertIndex, line);
+                variableOffsets[fn->parameters[i]] = parmOffset;
+                parmOffset -= 8;
+                insertIndex++; // shift index because vector grows
             }
-        
+
+
+            string endLabel = fn->name + "_end";
+            currentFunctionEndLabel = endLabel;
 
             for (auto& stmt : fn->body) generateCode(stmt.get());
             
             int endIndex = assemblyCode.size();
+            funCode.insert(funCode.begin(), "global " + fn->name);
+            funCode.insert(funCode.begin() + 1, fn->name + ":");
+            funCode.insert(funCode.begin() + 2, "    push rbp");
+            funCode.insert(funCode.begin() + 3, "    mov rbp, rsp");
+            funCode.insert(funCode.begin() + 4, "    sub rsp, " + to_string(fn->parameters.size() * 8));
 
-            vector<string> funCode;
-            funCode.push_back(fn->name + ":");
-            funCode.push_back("    push rbp");
-            funCode.push_back("    mov rbp, rsp");
+            //for (int i = 0; i < fn->parameters.size(); i++)
+            //{
+            //    funCode.push_back("    mov [rbp" + to_string(parmOffset) + "], " + regs[i]);
+            //    variableOffsets[fn->parameters[i]] = parmOffset;
+            //    parmOffset -= 8;
+//
+            //}
 
-            
             funCode.insert(funCode.end(), assemblyCode.begin() + safeStart, assemblyCode.begin() + endIndex); // the code of function into funcode vector 
             
-            funCode.push_back("    pop rbp");
-            funCode.push_back("    ret");
+            funCode.push_back(currentFunctionEndLabel + ":");
+            if (!isFunRetValue(fn)){           
+                funCode.push_back("    mov rax, -1");
+            }
+                funCode.push_back("    leave");
+                funCode.push_back("    ret");
+            //funCode.push_back("    jmp " + endLabel);
             
             // idea is that we add the data or body statement of function into funCode with auto startIndex and endIndex and then remove it from assemblyCode you get it right man it was your idea btw :)
             
@@ -1476,6 +1506,8 @@ private:
             // inserts it to top of the assembly code and increment the index = 'data'
             assemblyCode.insert(assemblyCode.begin() + ++data, funCode.begin(), funCode.end());
             data += funCode.size();
+            variableOffsets = oldOffset;
+
         }
         else if (auto* fcn = dynamic_cast<FunctionCallNode*>(node)){
             string regs[] = {"rdi","rsi","rdx","rcx","r8","r9"};
@@ -1491,11 +1523,14 @@ private:
             assemblyCode.push_back("    call " + fcn->name);
         }
         else if (auto* rn = dynamic_cast<ReturnNode*>(node)){
-            if (rn->value) generateCode(rn->value.get());
-            else assemblyCode.push_back("   mov rax, -1");
+            generateCode(rn->value.get());
             
-            assemblyCode.push_back("    pop rbp");
-            assemblyCode.push_back("    ret");
+            if(currentFunctionEndLabel.empty()){
+                cerr << "Error: return statement used outsite the function\n";
+                exit(1);
+            }
+
+            assemblyCode.push_back("    jmp " + currentFunctionEndLabel);
         }
         else if (auto* en = dynamic_cast<ExitNode*>(node)) {
             generateCode(en->value.get()); 
