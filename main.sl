@@ -4,12 +4,20 @@ fun isEven(n){
     }
     return 0;
 }
+println("Program for checking if number is even or odd");
 
-laile x = 3;
+while(1){
+    print("Enter a value : ");
+    laile x = input();
+    
+    if(x < 0){
+        break;
+    }
 
-if(isEven(x)){
-    println("x is even");
-}else {
-    println("x is odd")
+    if(isEven(x)){
+        println("x is even");
+    }else {
+        println("x is odd");
+    }
 }
 

@@ -23,6 +23,7 @@ enum class TokenType{
     // Keywords Token
 
     Let,
+    Input,
     PrintNewLine,
     Print,
     If,
@@ -126,6 +127,7 @@ string TokenTypeToString(TokenType type) {
         case TokenType::Or:                   return "Or_Token";
         case TokenType::Exit:                 return "Exit_Token";
         case TokenType::End:                  return "End_Token";
+        case TokenType::Input:                return "Input_Token";
         case TokenType::Print:                return "Print_Token";
         case TokenType::PrintNewLine:         return "PrintNewLine_Token";
         case TokenType::Identifier:           return "Identifier_Token";
@@ -204,6 +206,7 @@ private:
 
     unordered_map<string,TokenType> keywordToken = {
         {"laile",   TokenType::Let},
+        {"input",   TokenType::Input},
         {"println", TokenType::PrintNewLine},
         {"print",   TokenType::Print},
         {"if",      TokenType::If},
@@ -339,17 +342,17 @@ struct ASTNode{
 };
 
 /// @brief ast node that stores number
-    struct NumberNode : ASTNode{
-        int value;
-        NumberNode(int val) : value(val){};
-        void print() const override {cout<<value;}
-    };
+struct NumberNode : ASTNode{
+    int value;
+    NumberNode(int val) : value(val){};
+    void print() const override {cout<<value;}
+};
 
-    struct StringNode : ASTNode{
-        string value;
-        StringNode(const string& val) : value(val){};
-        void print() const override {cout<<value;}
-    };
+struct StringNode : ASTNode{
+    string value;
+    StringNode(const string& val) : value(val){};
+    void print() const override {cout<<value;}
+};
 
 /// @brief ast node that stores one binary expression
 struct BinaryOperatorNode : ASTNode{
@@ -560,6 +563,13 @@ struct ReturnNode : ASTNode {
         if (value) value->print();
     }
 };
+
+struct InputNode : ASTNode {
+    void print() const override {
+        cout << "input()";
+    }
+};
+
 
 
 // ================ Parser ==================
@@ -891,6 +901,13 @@ private:
 
             auto operand = parseFactor();
             return make_unique<UnaryOperatorNode>("!",move(operand));
+        }
+        else if(match(TokenType::Input)){
+            if(!match(TokenType::Open_Parentheses) || !match(TokenType::Close_Parentheses)){
+                cerr << "Syntax Error: expected '()' atfer input\n";
+                exit(1);
+            }
+            return make_unique<InputNode>();
         }
         else if(match(TokenType::Number)){
             return make_unique<NumberNode>(Tokens[pos - 1].value);
@@ -1652,6 +1669,16 @@ private:
             }
             assemblyCode.push_back("    jmp " + continueLabel.back());
         }
+        else if (auto* input = dynamic_cast<InputNode*>(node)){
+            assemblyCode.push_back("    ; input()");
+            assemblyCode.push_back("    mov rax, 0");
+            assemblyCode.push_back("    mov rdi, 0");
+            assemblyCode.push_back("    mov rsi, buffer");
+            assemblyCode.push_back("    mov rdx, 32");
+            assemblyCode.push_back("    syscall");
+            assemblyCode.push_back("    mov rsi, buffer");
+            assemblyCode.push_back("    call atoi");
+        }
     }
 
     void addFunctions(){
@@ -1700,7 +1727,27 @@ private:
         assemblyCode.push_back("    syscall");
         assemblyCode.push_back("    ret");
 
-
+        assemblyCode.push_back("; ----------------------");
+        assemblyCode.push_back("; atoi");
+        assemblyCode.push_back("; convert buffer (rsi) to integer in rax");
+        assemblyCode.push_back("atoi:");
+        assemblyCode.push_back("    xor rax, rax");
+        assemblyCode.push_back("    xor rbx, rbx");
+        assemblyCode.push_back(".loop:");
+        assemblyCode.push_back("    mov bl, byte [rsi]");
+        assemblyCode.push_back("    cmp bl, 10");
+        assemblyCode.push_back("    je .done");
+        assemblyCode.push_back("    cmp bl, '0'");
+        assemblyCode.push_back("    jl .done");
+        assemblyCode.push_back("    cmp bl, '9'");
+        assemblyCode.push_back("    jg .done");
+        assemblyCode.push_back("    sub bl, '0'");
+        assemblyCode.push_back("    imul rax, rax, 10");
+        assemblyCode.push_back("    add rax, rbx");
+        assemblyCode.push_back("    inc rsi");
+        assemblyCode.push_back("    jmp .loop");
+        assemblyCode.push_back(".done:");
+        assemblyCode.push_back("    ret");
 
         assemblyCode.push_back("; ----------------------");
         assemblyCode.push_back("; void print_string(char* str, uint64_t len)");
