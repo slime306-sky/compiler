@@ -885,6 +885,8 @@ private:
         else if(peek().tokenType == TokenType::Minus){
             consume(); // - 
 
+            cout << "Token after minus: " << TokenTypeToString(peek().tokenType) << " value: " << peek().value << endl;
+
             if(peek().tokenType == TokenType::Number){
                 int val = -consume().value;
                 return make_unique<NumberNode>(val);
@@ -1227,6 +1229,7 @@ private:
 
         if (auto* num = dynamic_cast<NumberNode*>(node)) {
             // Literal value: mov rax, immediate
+            cout << "[NUM] Generating number: " << num->value << endl;
             assemblyCode.push_back("    mov rax, " + to_string(num->value));
         }
         else if (auto* pn = dynamic_cast<PrintNode*>(node)) {
@@ -1523,6 +1526,7 @@ private:
             // remove's the data or instuction from assembly code
             assemblyCode.erase(assemblyCode.begin() + safeStart , assemblyCode.begin() + endIndex);
 
+            
             for (const auto& line: funCode){
                 cout << line << endl;
             }
@@ -1538,7 +1542,10 @@ private:
                 cerr << "Too many arguments" << endl;
                 exit(1);
             }
+            cout << "[CALL] calling function : " << fcn->name << endl;
+            cout << "Argument count: " << fcn->arguments.size() << endl;
             for (int i = 0;i < fcn->arguments.size();i++){
+                cout << "Generating argument " << i << endl;
                 generateCode(fcn->arguments[i].get());
                 assemblyCode.push_back("    mov " + regs[i] + ", rax");
             }
