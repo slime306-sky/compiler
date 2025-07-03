@@ -1475,66 +1475,53 @@ private:
                 exit(1);
             }
             vector<string> funCode;
+
+            funCode.push_back("global " + fn->name);
+            funCode.push_back(fn->name + ":");
+            funCode.push_back("    push rbp");
+            funCode.push_back("    mov rbp, rsp");
+            funCode.push_back("    sub rsp, " + to_string(fn->parameters.size() * 8));
+
+
             while (funCode.size() < 5) {
                 funCode.push_back(""); // or any placeholder string
             }
-            int insertIndex = 5;
             int parmOffset = -8;
             string regs[] = {"rdi","rsi","rdx","rcx","r8","r9"};
             for (int i = 0; i < fn->parameters.size(); i++)
             {
                 string line = "    mov [rbp" + to_string(parmOffset) + "], " + regs[i];
-                funCode.insert(funCode.begin() + insertIndex, line);
+                funCode.push_back("    mov [rbp" + to_string(parmOffset) + "], " + regs[i]);
                 variableOffsets[fn->parameters[i]] = parmOffset;
                 parmOffset -= 8;
-                insertIndex++; // shift index because vector grows
             }
 
+            vector<string> oldcode = move(assemblyCode);
+            assemblyCode.clear();
+
+            for (auto& stmt : fn->body) generateCode(stmt.get());
+
+            vector<string> funBodyCode = move(assemblyCode);
+            assemblyCode = move(oldcode);
+
+            funCode.insert(funCode.end(), funBodyCode.begin(), funBodyCode.end());
 
             string endLabel = fn->name + "_end";
             currentFunctionEndLabel = endLabel;
-
-            for (auto& stmt : fn->body) generateCode(stmt.get());
-            
-            int endIndex = assemblyCode.size();
-            funCode.insert(funCode.begin(), "global " + fn->name);
-            funCode.insert(funCode.begin() + 1, fn->name + ":");
-            funCode.insert(funCode.begin() + 2, "    push rbp");
-            funCode.insert(funCode.begin() + 3, "    mov rbp, rsp");
-            funCode.insert(funCode.begin() + 4, "    sub rsp, " + to_string(fn->parameters.size() * 8));
-
-            //for (int i = 0; i < fn->parameters.size(); i++)
-            //{
-            //    funCode.push_back("    mov [rbp" + to_string(parmOffset) + "], " + regs[i]);
-            //    variableOffsets[fn->parameters[i]] = parmOffset;
-            //    parmOffset -= 8;
-//
-            //}
-
-            funCode.insert(funCode.end(), assemblyCode.begin() + safeStart, assemblyCode.begin() + endIndex); // the code of function into funcode vector 
             
             funCode.push_back(currentFunctionEndLabel + ":");
             if (!isFunRetValue(fn)){           
                 funCode.push_back("    mov rax, -1");
             }
-                funCode.push_back("    leave");
-                funCode.push_back("    ret");
-            //funCode.push_back("    jmp " + endLabel);
-            
-            // idea is that we add the data or body statement of function into funCode with auto startIndex and endIndex and then remove it from assemblyCode you get it right man it was your idea btw :)
-            
-            // remove's the data or instuction from assembly code
-            assemblyCode.erase(assemblyCode.begin() + safeStart , assemblyCode.begin() + endIndex);
-
+            funCode.push_back("    leave");
+            funCode.push_back("    ret");
             
             for (const auto& line: funCode){
                 cout << line << endl;
             }
-            // inserts it to top of the assembly code and increment the index = 'data'
             assemblyCode.insert(assemblyCode.begin() + ++data, funCode.begin(), funCode.end());
             data += funCode.size();
             variableOffsets = oldOffset;
-
         }
         else if (auto* fcn = dynamic_cast<FunctionCallNode*>(node)){
             string regs[] = {"rdi","rsi","rdx","rcx","r8","r9"};
