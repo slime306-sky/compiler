@@ -884,6 +884,12 @@ private:
         }
         else if(peek().tokenType == TokenType::Minus){
             consume(); // - 
+
+            if(peek().tokenType == TokenType::Number){
+                int val = -consume().value;
+                return make_unique<NumberNode>(val);
+            }
+
             auto operand = parseFactor();
             return make_unique<UnaryOperatorNode>("-",move(operand));
         }
